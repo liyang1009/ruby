@@ -3179,40 +3179,47 @@ iseq_compile_each(rb_iseq_t *iseq, LINK_ANCHOR *ret, NODE * node, int poped)
 	LABEL *redo_label = iseq->compile_data->redo_label = NEW_LABEL(nd_line(node));	/* redo  */
 	LABEL *break_label = iseq->compile_data->end_label = NEW_LABEL(nd_line(node));	/* break */
 	LABEL *end_label = NEW_LABEL(nd_line(node));
+	LABEL *loop_label = NEW_LABEL(nd_line(node));
 
-	LABEL *next_catch_label = NEW_LABEL(nd_line(node));
+	LABEL *next_catch_label = next_label;
 	LABEL *tmp_label = NULL;
+
+	if (type == NODE_OPT_N) poped = 1;
 
 	iseq->compile_data->loopval_popped = 0;
 	push_ensure_entry(iseq, &enl, 0, 0);
 
+	if (!poped) {
+	    ADD_INSN(ret, nd_line(node), putnil);
+	}
 	if (type == NODE_OPT_N || node->nd_state == 1) {
+	    next_catch_label = NEW_LABEL(nd_line(node));
+	    ADD_INSNL(ret, nd_line(node), jump, next_label);
+	    ADD_INSN(ret, nd_line(node), putnil);
+	    ADD_LABEL(ret, next_catch_label);
+	    ADD_INSN(ret, nd_line(node), pop);
 	    ADD_INSNL(ret, nd_line(node), jump, next_label);
 	}
-	else {
-	    tmp_label = NEW_LABEL(nd_line(node));
-	    ADD_INSNL(ret, nd_line(node), jump, tmp_label);
-	}
-	ADD_INSN(ret, nd_line(node), putnil);
-	ADD_LABEL(ret, next_catch_label);
-	ADD_INSN(ret, nd_line(node), pop);
-	ADD_INSNL(ret, nd_line(node), jump, next_label);
-	if (tmp_label) ADD_LABEL(ret, tmp_label);
 
+	ADD_LABEL(ret, loop_label);
+	if (!poped) {
+	    ADD_INSN(ret, nd_line(node), pop);
+	}
 	ADD_LABEL(ret, redo_label);
-	COMPILE_POPED(ret, "while body", node->nd_body);
+	COMPILE_(ret, "while body", node->nd_body, poped);
 	ADD_LABEL(ret, next_label);	/* next */
 
-	if (type == NODE_WHILE) {
+	switch (type) {
+	  case NODE_WHILE:
 	    compile_branch_condition(iseq, ret, node->nd_cond,
-				     redo_label, end_label);
-	}
-	else if (type == NODE_UNTIL) {
+				     loop_label, end_label);
+	    break;
+	  case NODE_UNTIL:
 	    /* untile */
 	    compile_branch_condition(iseq, ret, node->nd_cond,
-				     end_label, redo_label);
-	}
-	else {
+				     end_label, loop_label);
+	    break;
+	  default:
 	    ADD_CALL_RECEIVER(ret, nd_line(node));
 	    ADD_CALL(ret, nd_line(node), ID2SYM(idGets), INT2FIX(0));
 	    ADD_INSNL(ret, nd_line(node), branchif, redo_label);
@@ -3225,13 +3232,13 @@ iseq_compile_each(rb_iseq_t *iseq, LINK_ANCHOR *ret, NODE * node, int poped)
 	    /* ADD_INSN(ret, nd_line(node), putundef); */
 	    rb_bug("unsupported: putundef");
 	}
-	else {
+	else if (poped) {
 	    ADD_INSN(ret, nd_line(node), putnil);
 	}
 
 	ADD_LABEL(ret, break_label);	/* break */
 
-	if (poped) {
+	if (poped && type != NODE_OPT_N) {
 	    ADD_INSN(ret, nd_line(node), pop);
 	}
 
