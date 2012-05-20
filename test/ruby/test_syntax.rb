@@ -2,13 +2,13 @@ require 'test/unit'
 require_relative 'envutil'
 
 class TestSyntax < Test::Unit::TestCase
-  def assert_valid_syntax(code, fname, mesg = fname)
+  def assert_valid_syntax(code, fname, mesg = fname, verbose: nil)
     code = code.dup.force_encoding("ascii-8bit")
     code.sub!(/\A(?:\xef\xbb\xbf)?(\s*\#.*$)*(\n)?/n) {
       "#$&#{"\n" if $1 && !$2}BEGIN{throw tag, :ok}\n"
     }
     code.force_encoding("us-ascii")
-    verbose, $VERBOSE = $VERBOSE, nil
+    verbose, $VERBOSE = $VERBOSE, verbose
     yield if defined?(yield)
     assert_nothing_raised(SyntaxError, mesg) do
       assert_equal(:ok, catch {|tag| eval(code, binding, fname, 0)}, mesg)
@@ -107,14 +107,14 @@ class TestSyntax < Test::Unit::TestCase
 
   def test_warn_grouped_expression
     assert_warn("test:2: warning: (...) interpreted as grouped expression\n") do
-      assert_valid_syntax("foo \\\n(\n  true)", "test") {$VERBOSE = true}
+      assert_valid_syntax("foo \\\n(\n  true)", "test", verbose: true)
     end
   end
 
   def test_warn_unreachable
     assert_warn("test:3: warning: statement not reached\n") do
       code = "loop do\n" "break\n" "foo\n" "end"
-      assert_valid_syntax(code, "test") {$VERBOSE = true}
+      assert_valid_syntax(code, "test", verbose: true)
     end
   end
 
