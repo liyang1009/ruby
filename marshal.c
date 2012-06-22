@@ -911,8 +911,6 @@ marshal_dump(int argc, VALUE *argv)
 {
     VALUE obj, port, a1, a2;
     int limit = -1;
-    struct dump_arg *arg;
-    volatile VALUE wrapper;
 
     port = Qnil;
     rb_scan_args(argc, argv, "12", &obj, &a1, &a2);
@@ -926,6 +924,15 @@ marshal_dump(int argc, VALUE *argv)
 	else if (NIL_P(a1)) io_needed();
 	else port = a1;
     }
+    return rb_marshal_dump_limited(obj, port, limit);
+}
+
+VALUE
+rb_marshal_dump_limited(VALUE obj, VALUE port, int limit)
+{
+    struct dump_arg *arg;
+    volatile VALUE wrapper;
+
     wrapper = TypedData_Make_Struct(rb_cData, struct dump_arg, &dump_arg_data, arg);
     arg->dest = 0;
     arg->symbols = st_init_numtable();
@@ -1771,12 +1778,19 @@ static VALUE
 marshal_load(int argc, VALUE *argv)
 {
     VALUE port, proc;
+
+    rb_scan_args(argc, argv, "11", &port, &proc);
+    return rb_marshal_load_with_proc(port, proc);
+}
+
+VALUE
+rb_marshal_load_with_proc(VALUE port, VALUE proc)
+{
     int major, minor, infection = 0;
     VALUE v;
     volatile VALUE wrapper;
     struct load_arg *arg;
 
-    rb_scan_args(argc, argv, "11", &port, &proc);
     v = rb_check_string_type(port);
     if (!NIL_P(v)) {
 	infection = (int)FL_TEST(port, MARSHAL_INFECTION); /* original taintedness */
@@ -1955,17 +1969,11 @@ Init_marshal(void)
 VALUE
 rb_marshal_dump(VALUE obj, VALUE port)
 {
-    int argc = 1;
-    VALUE argv[2];
-
-    argv[0] = obj;
-    argv[1] = port;
-    if (!NIL_P(port)) argc = 2;
-    return marshal_dump(argc, argv);
+    return rb_marshal_dump_limited(obj, port, -1);
 }
 
 VALUE
 rb_marshal_load(VALUE port)
 {
-    return marshal_load(1, &port);
+    return rb_marshal_load_with_proc(port, Qnil);
 }
