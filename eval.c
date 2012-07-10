@@ -302,6 +302,7 @@ ruby_run_node(ruby_opaque_t n)
 	ruby_cleanup(0);
 	return status;
     }
+    ruby_global_init();
     return ruby_cleanup(ruby_exec_node(n));
 }
 

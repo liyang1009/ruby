@@ -1087,7 +1087,11 @@ Init_signal(void)
     rb_define_method(rb_eSignal, "signo", esignal_signo, 0);
     rb_alias(rb_eSignal, rb_intern("signm"), rb_intern("message"));
     rb_define_method(rb_eInterrupt, "initialize", interrupt_init, -1);
+}
 
+void
+ruby_install_signal_handler(void)
+{
     install_sighandler(SIGINT, sighandler);
 #ifdef SIGHUP
     install_sighandler(SIGHUP, sighandler);

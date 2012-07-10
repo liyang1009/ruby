@@ -216,8 +216,12 @@ VALUE rb_rational_reciprocal(VALUE x);
 VALUE rb_reg_compile(VALUE str, int options, const char *sourcefile, int sourceline);
 VALUE rb_reg_check_preprocess(VALUE);
 
+/* ruby.c */
+void ruby_global_init(void);
+
 /* signal.c */
 int rb_get_next_signal(void);
+void ruby_install_signal_handler(void);
 
 /* strftime.c */
 #ifdef RUBY_ENCODING_H
