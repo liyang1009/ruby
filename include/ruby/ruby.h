@@ -1485,6 +1485,8 @@ int ruby_vsnprintf(char *str, size_t n, char const *fmt, va_list ap);
  */
 typedef void *ruby_opaque_t;
 
+#define RUBY_GLOBAL_SETUP	/* empty hook */
+
 /** @defgroup ruby1 ruby(1) implementation
  * A part of the implementation of ruby(1) command.
  * Other programs that embed Ruby interpreter do not always need to use these

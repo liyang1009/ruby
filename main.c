@@ -19,6 +19,8 @@
 #include <stdlib.h>
 #endif
 
+RUBY_GLOBAL_SETUP
+
 int
 main(int argc, char **argv)
 {
