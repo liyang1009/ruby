@@ -1812,6 +1812,9 @@ ruby_script(const char *name)
     if (name) {
 	rb_progname = rb_external_str_new(name, strlen(name));
 	rb_vm_set_progname(rb_progname);
+	rb_argv0 = rb_str_new4(rb_progname);
+	/* TODO: should unregister old value? */
+	rb_gc_register_mark_object(rb_argv0);
     }
 }
 
@@ -1940,8 +1943,6 @@ ruby_process_options(int argc, char **argv)
     VALUE iseq;
 
     ruby_script(argv[0]);  /* for the time being */
-    rb_argv0 = rb_str_new4(rb_progname);
-    rb_gc_register_mark_object(rb_argv0);
     iseq = process_options(argc, argv, cmdline_options_init(&opt));
 
     return (void*)(struct RData*)iseq;
