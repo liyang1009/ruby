@@ -52,10 +52,7 @@ module Test
         non_options(args, options)
         @help = orig_args.map { |s| s =~ /[\s|&<>$()]/ ? s.inspect : s }.join " "
         @options = options
-        if @options[:parallel]
-          @files = args
-          @args = orig_args
-        end
+        @files = args
         options
       end
 
@@ -258,10 +255,10 @@ module Test
       include Test::Unit::RunCount
 
       class Worker
-        def self.launch(ruby,args=[])
+        def self.launch(ruby)
           io = IO.popen([*ruby,
-                        "#{File.dirname(__FILE__)}/unit/parallel.rb",
-                        *args], "rb+")
+                        "#{File.dirname(__FILE__)}/unit/parallel.rb"],
+                        "rb+")
           new(io, io.pid, :waiting)
         end
 
@@ -282,12 +279,13 @@ module Test
           @io.puts(*args)
         end
 
-        def run(task,type)
+        def run(task, type)
           @file = File.basename(task, ".rb")
           @real_file = task
           begin
             puts "loadpath #{[Marshal.dump($:-@loadpath)].pack("m0")}"
             @loadpath = $:.dup
+            puts "options #{[Marshal.dump(@options)].pack("m0")}"
             puts "run #{task} #{type}"
             @status = :prepare
           rescue Errno::EPIPE
@@ -454,7 +452,7 @@ module Test
 
       def launch_worker
         begin
-          worker = Worker.launch(@options[:ruby],@args)
+          worker = Worker.launch(@options[:ruby])
         rescue => e
           abort "ERROR: Failed to launch job process - #{e.class}: #{e.message}"
         end

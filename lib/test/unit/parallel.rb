@@ -104,6 +104,9 @@ module Test
             when /^loadpath (.+?)$/
               @old_loadpath = $:.dup
               $:.push(*Marshal.load($1.unpack("m")[0].force_encoding("ASCII-8BIT"))).uniq!
+            when /^options (.+)$/
+              @opts = Marshal.load($1.unpack("m")[0]) || @opts
+              @verbose = @opts[:verbose]
             when /^run (.+?) (.+?)$/
               _report "okay"
 
