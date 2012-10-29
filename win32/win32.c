@@ -1182,6 +1182,7 @@ rb_w32_spawn(int mode, const char *cmd, const char *prog)
     char fbuf[MAXPATHLEN];
     char *p = NULL;
     const char *shell = NULL;
+    const char *comspec;
     WCHAR *wcmd, *wshell;
     rb_pid_t ret;
     VALUE v = 0;
@@ -1207,11 +1208,13 @@ rb_w32_spawn(int mode, const char *cmd, const char *prog)
 	    sprintf(tmp, "%s -c \"%s\"", shell, cmd);
 	    cmd = tmp;
 	}
-	else if ((shell = getenv("COMSPEC")) &&
+	else if ((shell = comspec = getenv("COMSPEC")) &&
 		 (nt = !is_command_com(shell),
 		  (redir < 0 ? has_redirection(cmd) : redir) ||
 		  is_internal_cmd(cmd, nt))) {
-	    char *tmp = ALLOCV(v, strlen(shell) + strlen(cmd) + sizeof(" /c ") + (nt ? 2 : 0));
+	    char *tmp;
+	  com:
+	    tmp = ALLOCV(v, strlen(shell) + strlen(cmd) + sizeof(" /c ") + (nt ? 2 : 0));
 	    sprintf(tmp, nt ? "%s /c \"%s\"" : "%s /c %s", shell, cmd);
 	    cmd = tmp;
 	}
@@ -1252,7 +1255,20 @@ rb_w32_spawn(int mode, const char *cmd, const char *prog)
 		    shell = p;
 		}
 		if (p) translate_char(p, '/', '\\');
-		if (is_batch(shell)) {
+	    }
+	    if (is_batch(shell)) {
+		if (comspec) {
+		    if (!dln_find_exe_r(comspec, NULL, fbuf, sizeof(fbuf))) {
+			errno = ENOENT;
+			return -1;
+		    }
+		    strlcpy(fbuf, comspec, sizeof(fbuf));
+		    translate_char(fbuf, '/', '\\');
+		    shell = fbuf;
+		    nt = !is_command_com(shell);
+		    goto com;
+		}
+		else {
 		    int alen = strlen(prog);
 		    cmd = p = ALLOCV(v, len + alen + (quote ? 2 : 0) + 1);
 		    if (quote) *p++ = '"';
@@ -1316,17 +1332,27 @@ rb_w32_aspawn_flags(int mode, const char *prog, char *const *argv, DWORD flags)
     }
     if (c_switch || is_batch(prog)) {
 	char *progs[2];
-	progs[0] = (char *)prog;
+	progs[0] = (char *)shell;
 	progs[1] = NULL;
 	len = join_argv(NULL, progs, ntcmd);
-	if (c_switch) len += 3;
-	else ++argv;
+	len += 3;
 	if (argv[0]) len += join_argv(NULL, argv, ntcmd);
 	cmd = ALLOCV(v, len);
 	join_argv(cmd, progs, ntcmd);
-	if (c_switch) strlcat(cmd, " /c", len);
-	if (argv[0]) join_argv(cmd + strlcat(cmd, " ", len), argv, ntcmd);
-	prog = c_switch ? shell : 0;
+	translate_char(cmd, '/', '\\');
+	strlcat(cmd, " /c", len);
+	if (argv[0]) {
+	    char *p = cmd + strlen(cmd);
+	    progs[0] = *++argv;
+	    *p++ = ' ';
+	    join_argv(p, progs, ntcmd);
+	    translate_char(p, '/', '\\');
+	    if (argv[0]) {
+		*p++ = ' ';
+		join_argv(p, argv, ntcmd);
+	    }
+	}
+	prog = shell;
     }
     else {
 	len = join_argv(NULL, argv, FALSE);
