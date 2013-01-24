@@ -764,7 +764,7 @@ static HRESULT ( STDMETHODCALLTYPE GetIDsOfNames )(
     Win32OLEIDispatch* p = (Win32OLEIDispatch*)This;
     */
     char* psz = ole_wc2mb(*rgszNames); // support only one method
-    *rgDispId = rb_intern(psz);
+    *rgDispId = (DISPID)rb_check_id_cstr(psz, (long)strlen(psz), cWIN32OLE_enc);
     free(psz);
     return S_OK;
 }
@@ -4077,13 +4077,12 @@ fole_missing(int argc, VALUE *argv, VALUE self)
 {
     ID id;
     const char* mname;
-    int n;
-    id = rb_to_id(argv[0]);
-    mname = rb_id2name(id);
-    if(!mname) {
-        rb_raise(rb_eRuntimeError, "fail: unknown method or property");
-    }
-    n = strlen(mname);
+    long n;
+    VALUE mid = argv[0];
+    id = rb_check_id(&mid);
+    if (id) mid = rb_id2str(id);
+    mname = RSTRING_PTR(mid);
+    n = RSTRING_LEN(mid);
     if(mname[n-1] == '=') {
         argv[0] = rb_enc_str_new(mname, n-1, cWIN32OLE_enc);
 
