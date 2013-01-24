@@ -1063,6 +1063,23 @@ ole_cp2encoding(UINT cp)
     return rb_enc_from_index(idx);
 }
 
+#ifndef pIMultiLanguage
+static UINT
+ole_ml_wc2mb_conv(LPWSTR pw, LPSTR pm)
+{
+    DWORD dw = 0;
+    UINT size = 0;
+    HRESULT hr = pIMultiLanguage->lpVtbl->ConvertStringFromUnicode(pIMultiLanguage,
+		    &dw, cWIN32OLE_cp, pw, NULL, pm, &size);
+    if (FAILED(hr)) {
+        ole_raise(hr, eWIN32OLERuntimeError, "fail to convert Unicode to CP%d", cWIN32OLE_cp);
+    }
+    return size;
+}
+#endif
+
+#define ole_wc2mb_conv(pw, pm, size) WideCharToMultiByte(cWIN32OLE_cp, 0, (pw), -1, (pm), (size), NULL, NULL)
+
 static char *
 ole_wc2mb(LPWSTR pw)
 {
@@ -1070,31 +1087,16 @@ ole_wc2mb(LPWSTR pw)
     UINT size = 0;
     if (conv_51932(cWIN32OLE_cp)) {
 #ifndef pIMultiLanguage
-	DWORD dw = 0;
-	HRESULT hr = pIMultiLanguage->lpVtbl->ConvertStringFromUnicode(pIMultiLanguage,
-		&dw, cWIN32OLE_cp, pw, NULL, NULL, &size);
-	if (FAILED(hr)) {
-            ole_raise(hr, eWIN32OLERuntimeError, "fail to convert Unicode to CP%d", cWIN32OLE_cp);
-	}
+	size = ole_ml_wc2mb_conv(pw, NULL);
 	pm = ALLOC_N(char, size + 1);
-	hr = pIMultiLanguage->lpVtbl->ConvertStringFromUnicode(pIMultiLanguage,
-		&dw, cWIN32OLE_cp, pw, NULL, pm, &size);
-	if (FAILED(hr)) {
-            ole_raise(hr, eWIN32OLERuntimeError, "fail to convert Unicode to CP%d", cWIN32OLE_cp);
-	}
-	pm[size] = '\0';
+	if (size) ole_ml_wc2mb_conv(pw, pm);
 #endif
-        return pm;
-    }
-    size = WideCharToMultiByte(cWIN32OLE_cp, 0, pw, -1, NULL, 0, NULL, NULL);
-    if (size) {
-        pm = ALLOC_N(char, size + 1);
-        WideCharToMultiByte(cWIN32OLE_cp, 0, pw, -1, pm, size, NULL, NULL);
-        pm[size] = '\0';
     }
     else {
-        pm = ALLOC_N(char, 1);
-        *pm = '\0';
+        size = ole_wc2mb_conv(pw, NULL, 0);
+        pm = ALLOC_N(char, size + 1);
+        if (size) ole_wc2mb_conv(pw, pm, size);
+        pm[size] = '\0';
     }
     return pm;
 }
