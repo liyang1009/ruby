@@ -4086,6 +4086,7 @@ fole_missing(int argc, VALUE *argv, VALUE self)
     mname = RSTRING_PTR(mid);
     n = RSTRING_LEN(mid);
     if(mname[n-1] == '=') {
+        rb_check_arity(argc, 2, 2);
         argv[0] = rb_enc_str_new(mname, n-1, cWIN32OLE_enc);
 
         return ole_propertyput(self, argv[0], argv[1]);
