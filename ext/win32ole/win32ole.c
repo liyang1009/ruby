@@ -1171,10 +1171,10 @@ ole_excepinfo2msg(EXCEPINFO *pExInfo)
     }
     error_msg = rb_str_new2(error_code);
     if(pSource != NULL) {
-        rb_str_cat(error_msg, pSource, strlen(pSource));
+        rb_str_cat2(error_msg, pSource);
     }
     else {
-        rb_str_cat(error_msg, "<Unknown>", 9);
+        rb_str_cat2(error_msg, "<Unknown>");
     }
     rb_str_cat2(error_msg, "\n      ");
     if(pDescription != NULL) {
@@ -1311,7 +1311,7 @@ ole_vstr2wc(VALUE vstr)
     enc = rb_enc_get(vstr);
 
     if (st_lookup(enc2cp_table, (st_data_t)enc, &data)) {
-        cp = data;
+        cp = (int)data;
     } else {
         cp = ole_encoding2cp(enc);
         if (code_page_installed(cp) ||
@@ -1387,7 +1387,7 @@ static VALUE
 ole_wc2vstr(LPWSTR pw, BOOL isfree)
 {
     char *p = ole_wc2mb(pw);
-    VALUE vstr = rb_enc_str_new(p, strlen(p), cWIN32OLE_enc);
+    VALUE vstr = rb_enc_str_new(p, (long)strlen(p), cWIN32OLE_enc);
     if(isfree)
         SysFreeString(pw);
     free(p);
