@@ -549,10 +549,12 @@ class TestMethod < Test::Unit::TestCase
   end
 
   def test_prepended
-    bug7836 = '[ruby-core:52160] [Bug #7836]'
+    feature7836 = '[ruby-core:52160] [Feature #7836]'
     bug7988 = '[ruby-core:53038] [Bug #7988]'
     m = Module.new {
       def foo
+      end
+      def zot
       end
     }
     c = Class.new {
@@ -561,6 +563,10 @@ class TestMethod < Test::Unit::TestCase
       prepend m
     }
     assert_raise(NameError, bug7988) {Module.new{prepend m}.instance_method(:bar)}
+    assert_equal(m, c.instance_method(:foo).owner, feature7836)
+    assert_equal(m, c.instance_method(:foo, true).owner, feature7836)
+    assert_equal(c, c.instance_method(:foo, false).owner, feature7836)
+    assert_raise(NameError, feature7836) {c.instance_method(:zot, false)}
   end
 
   def test_gced_bmethod
