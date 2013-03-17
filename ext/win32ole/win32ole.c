@@ -1064,18 +1064,20 @@ ole_cp2encoding(UINT cp)
 }
 
 #ifndef pIMultiLanguage
-static UINT
-ole_ml_wc2mb_conv(LPWSTR pw, LPSTR pm)
+static HRESULT
+ole_ml_wc2mb_conv0(LPWSTR pw, LPSTR pm, UINT *size)
 {
     DWORD dw = 0;
-    UINT size = 0;
-    HRESULT hr = pIMultiLanguage->lpVtbl->ConvertStringFromUnicode(pIMultiLanguage,
-		    &dw, cWIN32OLE_cp, pw, NULL, pm, &size);
-    if (FAILED(hr)) {
-        ole_raise(hr, eWIN32OLERuntimeError, "fail to convert Unicode to CP%d", cWIN32OLE_cp);
-    }
-    return size;
+    return pIMultiLanguage->lpVtbl->ConvertStringFromUnicode(pIMultiLanguage,
+		    &dw, cWIN32OLE_cp, pw, NULL, pm, size);
 }
+#define ole_ml_wc2mb_conv(pw, pm, size, onfailure) do {	\
+	HRESULT hr = ole_ml_wc2mb_conv0(pw, pm, &size); \
+	if (FAILED(hr)) { \
+	    onfailure; \
+	    ole_raise(hr, eWIN32OLERuntimeError, "fail to convert Unicode to CP%d", cWIN32OLE_cp); \
+	} \
+    } while (0)
 #endif
 
 #define ole_wc2mb_conv(pw, pm, size) WideCharToMultiByte(cWIN32OLE_cp, 0, (pw), -1, (pm), (size), NULL, NULL)
@@ -1087,9 +1089,9 @@ ole_wc2mb(LPWSTR pw)
     UINT size = 0;
     if (conv_51932(cWIN32OLE_cp)) {
 #ifndef pIMultiLanguage
-	size = ole_ml_wc2mb_conv(pw, NULL);
+	size = ole_ml_wc2mb_conv(pw, NULL, size, {});
 	pm = ALLOC_N(char, size + 1);
-	if (size) ole_ml_wc2mb_conv(pw, pm);
+	if (size) ole_ml_wc2mb_conv(pw, pm, size, xfree(pm));
 #endif
     }
     else {
