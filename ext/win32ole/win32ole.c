@@ -4098,10 +4098,12 @@ fole_missing(int argc, VALUE *argv, VALUE self)
     ID id;
     const char* mname;
     long n;
-    VALUE mid = argv[0];
-    id = rb_check_id(&mid);
-    if (id) mid = rb_id2str(id);
-    mname = RSTRING_PTR(mid);
+    VALUE mid;
+    if(argc < 1 || !(id = rb_check_id(&argv[0]))) {
+        rb_raise(rb_eRuntimeError, "fail: unknown method or property");
+    }
+    mid = rb_id2str(id);
+    mname = StringValueCStr(mid);
     n = RSTRING_LEN(mid);
     if(mname[n-1] == '=') {
         rb_check_arity(argc, 2, 2);
