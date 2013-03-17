@@ -1390,11 +1390,27 @@ ole_mb2wc(char *pm, int len)
 static VALUE
 ole_wc2vstr(LPWSTR pw, BOOL isfree)
 {
-    char *p = ole_wc2mb(pw);
-    VALUE vstr = rb_enc_str_new(p, (long)strlen(p), cWIN32OLE_enc);
+    VALUE vstr = rb_enc_str_new(0, 0, cWIN32OLE_enc);
+    LPSTR pm;
+    UINT size = 0;
+    if (conv_51932(cWIN32OLE_cp)) {
+#ifndef pIMultiLanguage
+	size = ole_ml_wc2mb_conv(pw, NULL, size, {});
+	if (size) {
+	    rb_str_resize(vstr, size);
+	    ole_ml_wc2mb_conv(pw, RSTRING_PTR(vstr), size, rb_str_resize(vstr, 0));
+	}
+#endif
+    }
+    else {
+	size = ole_wc2mb_conv(pw, NULL, 0);
+	if (size) {
+	    rb_str_resize(vstr, size);
+	    ole_wc2mb_conv(pw, RSTRING_PTR(vstr), size);
+	}
+    }
     if(isfree)
         SysFreeString(pw);
-    free(p);
     return vstr;
 }
 
