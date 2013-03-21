@@ -771,7 +771,7 @@ static void token_info_pop(struct parser_params*, const char *token);
 %type <node> bv_decls opt_bv_decl bvar
 %type <node> lambda f_larglist lambda_body
 %type <node> brace_block cmd_brace_block do_block lhs none fitem
-%type <node> mlhs mlhs_head mlhs_basic mlhs_item mlhs_node mlhs_post mlhs_inner
+%type <node> mlhs mlhs_head mlhs_basic mlhs_item mlhs_post mlhs_inner
 %type <id>   fsym keyword_variable user_variable sym symbol operation operation2 operation3
 %type <id>   cname fname op f_rest_arg f_block_arg opt_f_block_arg f_norm_arg f_bad_arg
 %type <id>   f_kwrest
@@ -1517,7 +1517,7 @@ mlhs_basic	: mlhs_head
 			$$ = mlhs_add($1, $2);
 		    %*/
 		    }
-		| mlhs_head tSTAR mlhs_node
+		| mlhs_head tSTAR lhs
 		    {
 		    /*%%%*/
 			$$ = NEW_MASGN($1, $3);
@@ -1525,7 +1525,7 @@ mlhs_basic	: mlhs_head
 			$$ = mlhs_add_star($1, $3);
 		    %*/
 		    }
-		| mlhs_head tSTAR mlhs_node ',' mlhs_post
+		| mlhs_head tSTAR lhs ',' mlhs_post
 		    {
 		    /*%%%*/
 			$$ = NEW_MASGN($1, NEW_POSTARG($3,$5));
@@ -1551,7 +1551,7 @@ mlhs_basic	: mlhs_head
 			$$ = mlhs_add($1, $4);
 		    %*/
 		    }
-		| tSTAR mlhs_node
+		| tSTAR lhs
 		    {
 		    /*%%%*/
 			$$ = NEW_MASGN(0, $2);
@@ -1559,7 +1559,7 @@ mlhs_basic	: mlhs_head
 			$$ = mlhs_add_star(mlhs_new(), $2);
 		    %*/
 		    }
-		| tSTAR mlhs_node ',' mlhs_post
+		| tSTAR lhs ',' mlhs_post
 		    {
 		    /*%%%*/
 			$$ = NEW_MASGN(0, NEW_POSTARG($2,$4));
@@ -1587,7 +1587,7 @@ mlhs_basic	: mlhs_head
 		    }
 		;
 
-mlhs_item	: mlhs_node
+mlhs_item	: lhs
 		| tLPAREN mlhs_inner rparen
 		    {
 		    /*%%%*/
@@ -1630,80 +1630,6 @@ mlhs_post	: mlhs_item
 			$$ = list_append($1, $3);
 		    /*%
 			$$ = mlhs_add($1, $3);
-		    %*/
-		    }
-		;
-
-mlhs_node	: user_variable
-		    {
-			$$ = assignable($1, 0);
-		    }
-		| keyword_variable
-		    {
-		        $$ = assignable($1, 0);
-		    }
-		| primary_value '[' opt_call_args rbracket
-		    {
-		    /*%%%*/
-			$$ = aryset($1, $3);
-		    /*%
-			$$ = dispatch2(aref_field, $1, escape_Qundef($3));
-		    %*/
-		    }
-		| primary_value '.' tIDENTIFIER
-		    {
-		    /*%%%*/
-			$$ = attrset($1, $3);
-		    /*%
-			$$ = dispatch3(field, $1, ripper_id2sym('.'), $3);
-		    %*/
-		    }
-		| primary_value tCOLON2 tIDENTIFIER
-		    {
-		    /*%%%*/
-			$$ = attrset($1, $3);
-		    /*%
-			$$ = dispatch2(const_path_field, $1, $3);
-		    %*/
-		    }
-		| primary_value '.' tCONSTANT
-		    {
-		    /*%%%*/
-			$$ = attrset($1, $3);
-		    /*%
-			$$ = dispatch3(field, $1, ripper_id2sym('.'), $3);
-		    %*/
-		    }
-		| primary_value tCOLON2 tCONSTANT
-		    {
-		    /*%%%*/
-			if (in_def || in_single)
-			    yyerror("dynamic constant assignment");
-			$$ = NEW_CDECL(0, 0, NEW_COLON2($1, $3));
-		    /*%
-			if (in_def || in_single)
-			    yyerror("dynamic constant assignment");
-			$$ = dispatch2(const_path_field, $1, $3);
-		    %*/
-		    }
-		| tCOLON3 tCONSTANT
-		    {
-		    /*%%%*/
-			if (in_def || in_single)
-			    yyerror("dynamic constant assignment");
-			$$ = NEW_CDECL(0, 0, NEW_COLON3($2));
-		    /*%
-			$$ = dispatch1(top_const_field, $2);
-		    %*/
-		    }
-		| backref
-		    {
-		    /*%%%*/
-			rb_backref_error($1);
-			$$ = NEW_BEGIN(0);
-		    /*%
-			$$ = dispatch1(var_field, $1);
-			$$ = dispatch1(assign_error, $$);
 		    %*/
 		    }
 		;
