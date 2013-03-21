@@ -756,8 +756,8 @@ static void token_info_pop(struct parser_params*, const char *token);
 %type <node> words symbols symbol_list qwords qsymbols word_list qword_list qsym_list word
 %type <node> literal numeric dsym cpath
 %type <node> top_compstmt top_stmts top_stmt
-%type <node> bodystmt compstmt stmts stmt_or_begin stmt expr arg primary command command_call method_call
-%type <node> expr_value arg_value primary_value fcall
+%type <node> bodystmt compstmt stmts stmt_or_begin stmt expr arg primary command command_call
+%type <node> expr_value arg_value primary_value fcall method_attr super_call
 %type <node> if_tail opt_else case_body cases opt_rescue exc_list exc_var opt_ensure
 %type <node> args call_args opt_call_args
 %type <node> paren_args opt_paren_args args_tail opt_args_tail block_args_tail opt_block_args_tail
@@ -1726,36 +1726,18 @@ lhs		: user_variable
 		        $$ = dispatch1(var_field, $$);
 		    %*/
 		    }
-		| primary_value '[' opt_call_args rbracket
+		| method_attr
 		    {
 		    /*%%%*/
-			$$ = aryset($1, $3);
+			NODE *node = $1;
+			ID mid = node->nd_mid;
+			if (nd_type(node) == NODE_FCALL ||
+			    (node->nd_recv && nd_type(node->nd_recv) == NODE_SELF)) {
+			    node->nd_recv = (NODE *)1;
+			}
+			node->nd_mid = (mid == tAREF) ? tASET : id_attrset(mid);
+			nd_set_type(node, NODE_ATTRASGN);
 		    /*%
-			$$ = dispatch2(aref_field, $1, escape_Qundef($3));
-		    %*/
-		    }
-		| primary_value '.' tIDENTIFIER
-		    {
-		    /*%%%*/
-			$$ = attrset($1, $3);
-		    /*%
-			$$ = dispatch3(field, $1, ripper_id2sym('.'), $3);
-		    %*/
-		    }
-		| primary_value tCOLON2 tIDENTIFIER
-		    {
-		    /*%%%*/
-			$$ = attrset($1, $3);
-		    /*%
-			$$ = dispatch3(field, $1, ripper_intern("::"), $3);
-		    %*/
-		    }
-		| primary_value '.' tCONSTANT
-		    {
-		    /*%%%*/
-			$$ = attrset($1, $3);
-		    /*%
-			$$ = dispatch3(field, $1, ripper_id2sym('.'), $3);
 		    %*/
 		    }
 		| primary_value tCOLON2 tCONSTANT
@@ -2737,8 +2719,18 @@ primary		: literal
 			$$ = method_add_block($$, $2);
 		    %*/
 		    }
-		| method_call
-		| method_call brace_block
+		| method_attr brace_block
+		    {
+		    /*%%%*/
+			block_dup_check($1->nd_args, $2);
+			$2->nd_iter = $1;
+			$$ = $2;
+		    /*%
+			$$ = method_add_block($1, $2);
+		    %*/
+		    }
+		| super_call
+		| super_call brace_block
 		    {
 		    /*%%%*/
 			block_dup_check($1->nd_args, $2);
@@ -3571,7 +3563,7 @@ block_call	: command do_block
 		    }
 		;
 
-method_call	: fcall paren_args
+method_attr	: fcall paren_args
 		    {
 		    /*%%%*/
 			$$ = $1;
@@ -3654,7 +3646,21 @@ method_call	: fcall paren_args
 			$$ = method_optarg($$, $4);
 		    %*/
 		    }
-		| keyword_super paren_args
+		| primary_value '[' opt_call_args rbracket
+		    {
+		    /*%%%*/
+			if ($1 && nd_type($1) == NODE_SELF)
+			    $$ = NEW_FCALL(tAREF, $3);
+			else
+			    $$ = NEW_CALL($1, tAREF, $3);
+			fixpos($$, $1);
+		    /*%
+			$$ = dispatch2(aref, $1, escape_Qundef($3));
+		    %*/
+		    }
+		;
+
+super_call	: keyword_super paren_args
 		    {
 		    /*%%%*/
 			$$ = NEW_SUPER($2);
@@ -3668,18 +3674,6 @@ method_call	: fcall paren_args
 			$$ = NEW_ZSUPER();
 		    /*%
 			$$ = dispatch0(zsuper);
-		    %*/
-		    }
-		| primary_value '[' opt_call_args rbracket
-		    {
-		    /*%%%*/
-			if ($1 && nd_type($1) == NODE_SELF)
-			    $$ = NEW_FCALL(tAREF, $3);
-			else
-			    $$ = NEW_CALL($1, tAREF, $3);
-			fixpos($$, $1);
-		    /*%
-			$$ = dispatch2(aref, $1, escape_Qundef($3));
 		    %*/
 		    }
 		;
