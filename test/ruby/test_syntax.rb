@@ -435,6 +435,15 @@ eom
     assert_syntax_error("0.0.0", msg)
   end
 
+  def test_return_toplevel
+    feature4840 = '[ruby-core:36785] [Feature #4840]'
+    assert_ruby_status([], "return; raise", feature4840)
+    assert_ruby_status([], "begin return; rescue SystemExit; exit false; end", feature4840)
+    assert_ruby_status([], "begin return; ensure exit false; end", feature4840)
+    assert_ruby_status([], "return false; raise", feature4840)
+    assert_ruby_status([], "return 1; raise", feature4840)
+  end
+
   private
 
   def not_label(x) @result = x; @not_label ||= nil end

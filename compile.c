@@ -4634,8 +4634,9 @@ iseq_compile_each(rb_iseq_t *iseq, LINK_ANCHOR *ret, NODE * node, int poped)
 	rb_iseq_t *is = iseq;
 
 	if (is) {
-	    if (is->type == ISEQ_TYPE_TOP) {
-		COMPILE_ERROR((ERROR_ARGS "Invalid return"));
+	    if (is->type == ISEQ_TYPE_TOP || is->type == ISEQ_TYPE_MAIN) {
+		ADD_INSN(ret, line, putnil);
+		ADD_INSN(ret, line, leave);
 	    }
 	    else {
 		LABEL *splabel = 0;
