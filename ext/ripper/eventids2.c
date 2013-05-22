@@ -231,6 +231,7 @@ static const struct token_assoc {
     {tOP_ASGN,		&ripper_id_op},
     {tOROP,		&ripper_id_op},
     {tPOW,		&ripper_id_op},
+    {tQUO,		&ripper_id_op},
     {tQWORDS_BEG,	&ripper_id_qwords_beg},
     {tQSYMBOLS_BEG,	&ripper_id_qsymbols_beg},
     {tSYMBOLS_BEG,	&ripper_id_symbols_beg},

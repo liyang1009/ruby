@@ -232,7 +232,7 @@ class TestRipper::ParserEvents < Test::Unit::TestCase
 
   def test_binary
     thru_binary = nil
-    %w"and or + - * / % ** | ^ & <=> > >= < <= == === != =~ !~ << >> && ||".each do |op|
+    %w"and or + - * / % ** // | ^ & <=> > >= < <= == === != =~ !~ << >> && ||".each do |op|
       thru_binary = false
       parse("a #{op} b", :on_binary) {thru_binary = true}
       assert_equal true, thru_binary
@@ -684,6 +684,9 @@ class TestRipper::ParserEvents < Test::Unit::TestCase
     assert_equal true, thru_opassign
     thru_opassign = false
     parse('a **= b', :on_opassign) {thru_opassign = true}
+    assert_equal true, thru_opassign
+    thru_opassign = false
+    parse('a //= b', :on_opassign) {thru_opassign = true}
     assert_equal true, thru_opassign
     thru_opassign = false
     parse('a &= b', :on_opassign) {thru_opassign = true}

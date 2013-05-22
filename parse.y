@@ -788,6 +788,7 @@ static void token_info_pop(struct parser_params*, const char *token);
 %token tUPLUS		RUBY_TOKEN(UPLUS)  "unary+"
 %token tUMINUS		RUBY_TOKEN(UMINUS) "unary-"
 %token tPOW		RUBY_TOKEN(POW)    "**"
+%token tQUO		RUBY_TOKEN(QUO)    "//"
 %token tCMP		RUBY_TOKEN(CMP)    "<=>"
 %token tEQ		RUBY_TOKEN(EQ)     "=="
 %token tEQQ		RUBY_TOKEN(EQQ)    "==="
@@ -846,7 +847,7 @@ static void token_info_pop(struct parser_params*, const char *token);
 %left  '+' '-'
 %left  '*' '/' '%'
 %right tUMINUS_NUM tUMINUS
-%right tPOW
+%right tPOW tQUO
 %right '!' '~' tUPLUS
 
 %token tLAST_TOKEN
@@ -1902,6 +1903,7 @@ op		: '|'		{ ifndef_ripper($$ = '|'); }
 		| '/'		{ ifndef_ripper($$ = '/'); }
 		| '%'		{ ifndef_ripper($$ = '%'); }
 		| tPOW		{ ifndef_ripper($$ = tPOW); }
+		| tQUO		{ ifndef_ripper($$ = tQUO); }
 		| tDSTAR	{ ifndef_ripper($$ = tDSTAR); }
 		| '!'		{ ifndef_ripper($$ = '!'); }
 		| '~'		{ ifndef_ripper($$ = '~'); }
@@ -2106,6 +2108,27 @@ arg		: lhs '=' arg
 			$$ = call_bin_op($1, tPOW, $3);
 		    /*%
 			$$ = dispatch3(binary, $1, ripper_intern("**"), $3);
+		    %*/
+		    }
+		| arg tQUO arg
+		    {
+		    /*%%%*/
+			VALUE y;
+			if (nd_type($3) != NODE_LIT) {
+			    $$ = call_bin_op($1, tQUO, $3);
+			}
+			else if ((y = $3->nd_lit) == INT2FIX(0)) {
+			    yyerror("divide by 0");
+			    $$ = 0;
+			}
+			else if (nd_type($1) == NODE_LIT) {
+			    $$->nd_lit = rb_rational_new($1->nd_lit, y);
+			}
+			else {
+			    $$ = call_bin_op($1, tQUO, $3);
+			}
+		    /*%
+			$$ = dispatch3(binary, $1, ripper_intern("//"), $3);
 		    %*/
 		    }
 		| tUMINUS_NUM tINTEGER tPOW arg
@@ -7637,10 +7660,27 @@ parser_yylex(struct parser_params *parser)
 	    lex_strterm = NEW_STRTERM(str_regexp, '/', 0);
 	    return tREGEXP_BEG;
 	}
-	if ((c = nextc()) == '=') {
+	switch (c = nextc()) {
+	  case '=':
             set_yylval_id('/');
 	    lex_state = EXPR_BEG;
 	    return tOP_ASGN;
+	  case '/':
+	    if ((c = nextc()) == '=') {
+		set_yylval_id(tQUO);
+		lex_state = EXPR_BEG;
+		return tOP_ASGN;
+	    }
+	    pushback(c);
+	    if (IS_SPCARG(c)) {
+		pushback('/');
+		(void)arg_ambiguous();
+		lex_strterm = NEW_STRTERM(str_regexp, '/', 0);
+		return tREGEXP_BEG;
+	    }
+	    lex_state = IS_AFTER_OPERATOR() ? EXPR_ARG : EXPR_BEG;
+	    warn_balanced("//", "regexp literal");
+	    return tQUO;
 	}
 	pushback(c);
 	if (IS_SPCARG(c)) {
@@ -8879,6 +8919,7 @@ void_expr_gen(struct parser_params *parser, NODE *node)
 	  case '/':
 	  case '%':
 	  case tPOW:
+	  case tQUO:
 	  case tUPLUS:
 	  case tUMINUS:
 	  case '|':
@@ -9940,6 +9981,7 @@ static const struct {
     {'+',	"+(binary)"},
     {'-',	"-(binary)"},
     {tPOW,	"**"},
+    {tQUO,	"//"},
     {tDSTAR,	"**"},
     {tUPLUS,	"+@"},
     {tUMINUS,	"-@"},

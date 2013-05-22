@@ -12,6 +12,9 @@ with all sufficient information, see the ChangeLog file.
 == Changes since the 2.0.0 release
 
 === Language changes
+
+* Added // operator.
+
 === Core classes updates (outstanding ones only)
 
 * GC
