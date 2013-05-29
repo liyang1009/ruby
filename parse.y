@@ -10175,11 +10175,15 @@ rb_enc_symname_type(const char *name, long len, rb_encoding *enc)
 	if (*++m == '*') ++m;
 	break;
 
+      case '/':
+	if (*++m == '/') ++m;
+	break;
+
       case '+': case '-':
 	if (*++m == '@') ++m;
 	break;
 
-      case '|': case '^': case '&': case '/': case '%': case '~': case '`':
+      case '|': case '^': case '&': case '%': case '~': case '`':
 	++m;
 	break;
 
