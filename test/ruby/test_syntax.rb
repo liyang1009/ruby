@@ -147,6 +147,22 @@ WARN
     end
   end
 
+  def test_quo_regexp
+    args = nil
+    a = proc {|arg| args = arg; 1}
+
+    assert_equal(1, eval("a.call // 2", binding) * 2)
+    assert_nil(args)
+
+    args = nil
+    assert_equal(2, eval("a.call //\n""2", binding))
+    assert_equal(//, args)
+
+    args = nil
+    assert_equal(2, eval("a.call // # to be ignored\n""2", binding))
+    assert_equal(//, args)
+  end
+
   def test_cmd_symbol_after_keyword
     bug6347 = '[ruby-dev:45563]'
     assert_not_label(:foo, 'if true then not_label:foo end', bug6347)

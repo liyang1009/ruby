@@ -5644,6 +5644,19 @@ parser_pushback(struct parser_params *parser, int c)
     }
 }
 
+#define at_eol_p() parser_at_eol_p(parser)
+
+static int
+parser_at_eol_p(struct parser_params *parser)
+{
+    const char *p, *e = lex_pend;
+
+    for (p = lex_p; (p < e) && !(*p == '#' || *p == '\n'); ++p) {
+	if (!ISSPACE(*p)) return 0;
+    }
+    return 1;
+}
+
 #define was_bol() (lex_p == lex_pbeg + 1)
 
 #define tokfix() (tokenbuf[tokidx]='\0')
@@ -7672,13 +7685,13 @@ parser_yylex(struct parser_params *parser)
 		return tOP_ASGN;
 	    }
 	    pushback(c);
-	    if (IS_SPCARG(c)) {
+	    if (IS_ARG() && space_seen && (!ISSPACE(c) || at_eol_p())) {
 		pushback('/');
 		(void)arg_ambiguous();
 		lex_strterm = NEW_STRTERM(str_regexp, '/', 0);
 		return tREGEXP_BEG;
 	    }
-	    lex_state = IS_AFTER_OPERATOR() ? EXPR_ARG : EXPR_BEG;
+	    lex_state = IS_AFTER_OPERATOR() ? EXPR_ARG : EXPR_MID;
 	    warn_balanced("//", "regexp literal");
 	    return tQUO;
 	}
