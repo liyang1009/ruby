@@ -55,6 +55,8 @@ class TestNumeric < Test::Unit::TestCase
 
   def test_quo
     assert_raise(ArgumentError) {DummyNumeric.new.quo(1)}
+    assert_equal(1, 1.quo(2) * 2)
+    assert_equal(1, eval("1 // 2") * 2)
   end
 
   def test_divmod

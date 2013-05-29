@@ -139,9 +139,10 @@ WARN
      [:-, "unary operator"],
      [:/, "regexp literal"],
      [:%, "string literal"],
+     [:'//', "regexp literal"],
     ].each do |op, syn|
       assert_warning(warning % [op, syn]) do
-        assert_valid_syntax("puts 1 #{op}0", "test") {$VERBOSE = true}
+        assert_valid_syntax("puts 1 #{op}1", "test") {$VERBOSE = true}
       end
     end
   end
