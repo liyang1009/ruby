@@ -1536,13 +1536,25 @@ lazy_set_method(VALUE lazy, VALUE args, rb_enumerator_size_func *size_fn)
 }
 
 static VALUE
-lazy_copy(int argc, VALUE *argv, VALUE obj, VALUE entry_obj)
+lazy_add_method(VALUE obj, int argc, VALUE *argv, VALUE args, VALUE memo,
+		lazyenum_proc_func *proc_fn, lazyenum_size_func *size_fn)
 {
     struct enumerator *new_e;
     VALUE new_obj;
     VALUE new_generator;
     VALUE new_procs;
     struct enumerator *e = enumerator_ptr(obj);
+    struct proc_entry *entry;
+    VALUE entry_obj = TypedData_Make_Struct(rb_cObject, struct proc_entry,
+					    &proc_entry_data_type, entry);
+    if (rb_block_given_p()) {
+	entry->proc = rb_block_proc();
+    }
+    entry->proc_fn = proc_fn;
+    entry->size_fn = size_fn;
+    entry->memo = args;
+
+    lazy_set_args(entry_obj, memo);
 
     new_procs = RTEST(e->procs) ? rb_ary_dup(e->procs) : rb_ary_new();
     new_generator = lazy_generator_init(obj, new_procs);
@@ -1562,24 +1574,6 @@ lazy_copy(int argc, VALUE *argv, VALUE obj, VALUE entry_obj)
     }
     new_e->args = rb_ary_new4(argc, argv);
     return new_obj;
-}
-
-static VALUE
-lazy_plus_method(VALUE obj, int argc, VALUE *argv, VALUE args, VALUE memo,
-		 lazyenum_proc_func *proc_fn, lazyenum_size_func *size_fn)
-{
-    struct proc_entry *entry;
-    VALUE entry_obj = TypedData_Make_Struct(rb_cObject, struct proc_entry,
-						&proc_entry_data_type, entry);
-    if (rb_block_given_p()) {
-	entry->proc = rb_block_proc();
-    }
-    entry->proc_fn = proc_fn;
-    entry->size_fn = size_fn;
-    entry->memo = args;
-
-    lazy_set_args(entry_obj, memo);
-    return lazy_copy(argc, argv, obj, entry_obj);
 }
 
 /*
@@ -1689,7 +1683,7 @@ lazy_map(VALUE obj)
 	rb_raise(rb_eArgError, "tried to call lazy map without a block");
     }
 
-    return lazy_plus_method(obj, 0, 0, Qnil, Qnil, lazy_map_proc, lazy_map_size);
+    return lazy_add_method(obj, 0, 0, Qnil, Qnil, lazy_map_proc, lazy_map_size);
 }
 
 static VALUE
@@ -1792,7 +1786,7 @@ lazy_select(VALUE obj)
 	rb_raise(rb_eArgError, "tried to call lazy select without a block");
     }
 
-    return lazy_plus_method(obj, 0, 0, Qnil, Qnil, lazy_select_proc, 0);
+    return lazy_add_method(obj, 0, 0, Qnil, Qnil, lazy_select_proc, 0);
 }
 
 static NODE *
@@ -1810,7 +1804,7 @@ lazy_reject(VALUE obj)
 	rb_raise(rb_eArgError, "tried to call lazy reject without a block");
     }
 
-    return lazy_plus_method(obj, 0, 0, Qnil, Qnil, lazy_reject_proc, 0);
+    return lazy_add_method(obj, 0, 0, Qnil, Qnil, lazy_reject_proc, 0);
 }
 
 static NODE *
@@ -1837,9 +1831,9 @@ lazy_grep_iter_proc(VALUE proc_entry, NODE *result, VALUE memos, long memo_index
 static VALUE
 lazy_grep(VALUE obj, VALUE pattern)
 {
-    return lazy_plus_method(obj, 0, 0, pattern, rb_ary_new3(1, pattern),
-			    (rb_block_given_p() ? lazy_grep_iter_proc : lazy_grep_proc),
-			    0);
+    return lazy_add_method(obj, 0, 0, pattern, rb_ary_new3(1, pattern),
+			   (rb_block_given_p() ? lazy_grep_iter_proc : lazy_grep_proc),
+			   0);
 }
 
 static VALUE
@@ -1983,8 +1977,8 @@ lazy_take(VALUE obj, VALUE n)
        argc = 2;
     }
 
-    return lazy_plus_method(obj, argc, argv, n, rb_ary_new3(1, n),
-			    lazy_take_proc, lazy_take_size);
+    return lazy_add_method(obj, argc, argv, n, rb_ary_new3(1, n),
+			   lazy_take_proc, lazy_take_size);
 }
 
 static NODE *
@@ -2006,7 +2000,7 @@ lazy_take_while(VALUE obj)
 	rb_raise(rb_eArgError, "tried to call lazy take_while without a block");
     }
 
-    return lazy_plus_method(obj, 0, 0, Qnil, Qnil, lazy_take_while_proc, 0);
+    return lazy_add_method(obj, 0, 0, Qnil, Qnil, lazy_take_while_proc, 0);
 }
 
 static VALUE
@@ -2053,8 +2047,8 @@ lazy_drop(VALUE obj, VALUE n)
 	rb_raise(rb_eArgError, "attempt to drop negative size");
     }
 
-    return lazy_plus_method(obj, 2, argv, n, rb_ary_new3(1, n),
-			    lazy_drop_proc, lazy_drop_size);
+    return lazy_add_method(obj, 2, argv, n, rb_ary_new3(1, n),
+			   lazy_drop_proc, lazy_drop_size);
 }
 
 static NODE *
@@ -2083,7 +2077,7 @@ lazy_drop_while(VALUE obj)
 	rb_raise(rb_eArgError, "tried to call lazy drop_while without a block");
     }
 
-    return lazy_plus_method(obj, 0, 0, Qfalse, Qnil, lazy_drop_while_proc, 0);
+    return lazy_add_method(obj, 0, 0, Qfalse, Qnil, lazy_drop_while_proc, 0);
 }
 
 static VALUE
