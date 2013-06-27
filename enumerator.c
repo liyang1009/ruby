@@ -145,7 +145,7 @@ typedef struct {
 struct proc_entry {
     VALUE proc;
     VALUE memo;
-    lazyenum_funcs fn;
+    const lazyenum_funcs *fn;
 };
 
 static VALUE generator_allocate(VALUE klass);
@@ -1082,7 +1082,7 @@ enumerator_size(VALUE obj)
 	for (i = 0; i < RARRAY_LEN(e->procs); i++) {
 	    VALUE proc = RARRAY_AREF(e->procs, i);
 	    struct proc_entry *entry = proc_entry_ptr(proc);
-	    lazyenum_size_func *size = entry->fn.size;
+	    lazyenum_size_func *size = entry->fn->size;
 	    if (!size) {
 		return Qnil;
 	    }
@@ -1416,7 +1416,7 @@ lazy_init_yielder(VALUE val, VALUE m, int argc, VALUE *argv)
     for (i = 0; result->memo_chain && i < RARRAY_LEN(procs_array); i++) {
 	VALUE proc = RARRAY_AREF(procs_array, i);
 	struct proc_entry *entry = proc_entry_ptr(proc);
-	(*entry->fn.proc)(proc, result, memos, i);
+	(*entry->fn->proc)(proc, result, memos, i);
     }
 
     if (result->memo_chain) {
@@ -1541,7 +1541,7 @@ lazy_set_method(VALUE lazy, VALUE args, rb_enumerator_size_func *size_fn)
 
 static VALUE
 lazy_add_method(VALUE obj, int argc, VALUE *argv, VALUE args, VALUE memo,
-		lazyenum_proc_func *proc_fn, lazyenum_size_func *size_fn)
+		const lazyenum_funcs *fn)
 {
     struct enumerator *new_e;
     VALUE new_obj;
@@ -1554,8 +1554,7 @@ lazy_add_method(VALUE obj, int argc, VALUE *argv, VALUE args, VALUE memo,
     if (rb_block_given_p()) {
 	entry->proc = rb_block_proc();
     }
-    entry->fn.proc = proc_fn;
-    entry->fn.size = size_fn;
+    entry->fn = fn;
     entry->memo = args;
 
     lazy_set_args(entry_obj, memo);
@@ -1680,6 +1679,10 @@ lazy_map_size(VALUE entry, VALUE receiver)
     return receiver;
 }
 
+static const lazyenum_funcs lazy_map_funcs = {
+    lazy_map_proc, lazy_map_size,
+};
+
 static VALUE
 lazy_map(VALUE obj)
 {
@@ -1687,7 +1690,7 @@ lazy_map(VALUE obj)
 	rb_raise(rb_eArgError, "tried to call lazy map without a block");
     }
 
-    return lazy_add_method(obj, 0, 0, Qnil, Qnil, lazy_map_proc, lazy_map_size);
+    return lazy_add_method(obj, 0, 0, Qnil, Qnil, &lazy_map_funcs);
 }
 
 static VALUE
@@ -1783,6 +1786,10 @@ lazy_select_proc(VALUE proc_entry, NODE *result, VALUE memos, long memo_index)
     return result;
 }
 
+static const lazyenum_funcs lazy_select_funcs = {
+    lazy_select_proc, 0,
+};
+
 static VALUE
 lazy_select(VALUE obj)
 {
@@ -1790,7 +1797,7 @@ lazy_select(VALUE obj)
 	rb_raise(rb_eArgError, "tried to call lazy select without a block");
     }
 
-    return lazy_add_method(obj, 0, 0, Qnil, Qnil, lazy_select_proc, 0);
+    return lazy_add_method(obj, 0, 0, Qnil, Qnil, &lazy_select_funcs);
 }
 
 static NODE *
@@ -1801,6 +1808,10 @@ lazy_reject_proc(VALUE proc_entry, NODE *result, VALUE memos, long memo_index)
     return result;
 }
 
+static const lazyenum_funcs lazy_reject_funcs = {
+    lazy_reject_proc, 0,
+};
+
 static VALUE
 lazy_reject(VALUE obj)
 {
@@ -1808,7 +1819,7 @@ lazy_reject(VALUE obj)
 	rb_raise(rb_eArgError, "tried to call lazy reject without a block");
     }
 
-    return lazy_add_method(obj, 0, 0, Qnil, Qnil, lazy_reject_proc, 0);
+    return lazy_add_method(obj, 0, 0, Qnil, Qnil, &lazy_reject_funcs);
 }
 
 static NODE *
@@ -1832,12 +1843,20 @@ lazy_grep_iter_proc(VALUE proc_entry, NODE *result, VALUE memos, long memo_index
     return result;
 }
 
+static const lazyenum_funcs lazy_grep_iter_funcs = {
+    lazy_grep_iter_proc, 0,
+};
+
+static const lazyenum_funcs lazy_grep_funcs = {
+    lazy_grep_proc, 0,
+};
+
 static VALUE
 lazy_grep(VALUE obj, VALUE pattern)
 {
-    return lazy_add_method(obj, 0, 0, pattern, rb_ary_new3(1, pattern),
-			   (rb_block_given_p() ? lazy_grep_iter_proc : lazy_grep_proc),
-			   0);
+    const lazyenum_funcs *const funcs = rb_block_given_p() ?
+	&lazy_grep_iter_funcs : &lazy_grep_funcs;
+    return lazy_add_method(obj, 0, 0, pattern, rb_ary_new3(1, pattern), funcs);
 }
 
 static VALUE
@@ -1964,6 +1983,10 @@ lazy_take_proc(VALUE proc_entry, NODE *result, VALUE memos, long memo_index)
     return result;
 }
 
+static const lazyenum_funcs lazy_take_funcs = {
+    lazy_take_proc, lazy_take_size,
+};
+
 static VALUE
 lazy_take(VALUE obj, VALUE n)
 {
@@ -1981,8 +2004,7 @@ lazy_take(VALUE obj, VALUE n)
        argc = 2;
     }
 
-    return lazy_add_method(obj, argc, argv, n, rb_ary_new3(1, n),
-			   lazy_take_proc, lazy_take_size);
+    return lazy_add_method(obj, argc, argv, n, rb_ary_new3(1, n), &lazy_take_funcs);
 }
 
 static NODE *
@@ -1997,6 +2019,10 @@ lazy_take_while_proc(VALUE proc_entry, NODE *result, VALUE memos, long memo_inde
     return result;
 }
 
+static const lazyenum_funcs lazy_take_while_funcs = {
+    lazy_take_while_proc, 0,
+};
+
 static VALUE
 lazy_take_while(VALUE obj)
 {
@@ -2004,7 +2030,7 @@ lazy_take_while(VALUE obj)
 	rb_raise(rb_eArgError, "tried to call lazy take_while without a block");
     }
 
-    return lazy_add_method(obj, 0, 0, Qnil, Qnil, lazy_take_while_proc, 0);
+    return lazy_add_method(obj, 0, 0, Qnil, Qnil, &lazy_take_while_funcs);
 }
 
 static VALUE
@@ -2039,6 +2065,10 @@ lazy_drop_proc(VALUE proc_entry, NODE *result, VALUE memos, long memo_index)
     return result;
 }
 
+static const lazyenum_funcs lazy_drop_funcs = {
+    lazy_drop_proc, lazy_drop_size,
+};
+
 static VALUE
 lazy_drop(VALUE obj, VALUE n)
 {
@@ -2051,8 +2081,7 @@ lazy_drop(VALUE obj, VALUE n)
 	rb_raise(rb_eArgError, "attempt to drop negative size");
     }
 
-    return lazy_add_method(obj, 2, argv, n, rb_ary_new3(1, n),
-			   lazy_drop_proc, lazy_drop_size);
+    return lazy_add_method(obj, 2, argv, n, rb_ary_new3(1, n), &lazy_drop_funcs);
 }
 
 static NODE *
@@ -2074,6 +2103,10 @@ lazy_drop_while_proc(VALUE proc_entry, NODE* result, VALUE memos, long memo_inde
     return result;
 }
 
+static const lazyenum_funcs lazy_drop_while_funcs = {
+    lazy_drop_while_proc, 0,
+};
+
 static VALUE
 lazy_drop_while(VALUE obj)
 {
@@ -2081,7 +2114,7 @@ lazy_drop_while(VALUE obj)
 	rb_raise(rb_eArgError, "tried to call lazy drop_while without a block");
     }
 
-    return lazy_add_method(obj, 0, 0, Qfalse, Qnil, lazy_drop_while_proc, 0);
+    return lazy_add_method(obj, 0, 0, Qfalse, Qnil, &lazy_drop_while_funcs);
 }
 
 static VALUE
