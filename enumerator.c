@@ -137,12 +137,15 @@ struct yielder {
 
 typedef NODE *lazyenum_proc_func(VALUE, NODE *, VALUE, long);
 typedef VALUE lazyenum_size_func(VALUE, VALUE);
+typedef struct {
+    lazyenum_proc_func *proc;
+    lazyenum_size_func *size;
+} lazyenum_funcs;
 
 struct proc_entry {
     VALUE proc;
     VALUE memo;
-    lazyenum_proc_func *proc_fn;
-    lazyenum_size_func *size_fn;
+    lazyenum_funcs fn;
 };
 
 static VALUE generator_allocate(VALUE klass);
@@ -1079,10 +1082,11 @@ enumerator_size(VALUE obj)
 	for (i = 0; i < RARRAY_LEN(e->procs); i++) {
 	    VALUE proc = RARRAY_AREF(e->procs, i);
 	    struct proc_entry *entry = proc_entry_ptr(proc);
-	    if (!entry->size_fn) {
+	    lazyenum_size_func *size = entry->fn.size;
+	    if (!size) {
 		return Qnil;
 	    }
-	    receiver = (*entry->size_fn)(proc, receiver);
+	    receiver = (*size)(proc, receiver);
 	}
 	return receiver;
     }
@@ -1412,7 +1416,7 @@ lazy_init_yielder(VALUE val, VALUE m, int argc, VALUE *argv)
     for (i = 0; result->memo_chain && i < RARRAY_LEN(procs_array); i++) {
 	VALUE proc = RARRAY_AREF(procs_array, i);
 	struct proc_entry *entry = proc_entry_ptr(proc);
-	(*entry->proc_fn)(proc, result, memos, i);
+	(*entry->fn.proc)(proc, result, memos, i);
     }
 
     if (result->memo_chain) {
@@ -1550,8 +1554,8 @@ lazy_add_method(VALUE obj, int argc, VALUE *argv, VALUE args, VALUE memo,
     if (rb_block_given_p()) {
 	entry->proc = rb_block_proc();
     }
-    entry->proc_fn = proc_fn;
-    entry->size_fn = size_fn;
+    entry->fn.proc = proc_fn;
+    entry->fn.size = size_fn;
     entry->memo = args;
 
     lazy_set_args(entry_obj, memo);
