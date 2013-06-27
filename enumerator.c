@@ -1544,20 +1544,14 @@ lazy_copy(int argc, VALUE *argv, VALUE obj, VALUE entry_obj)
     VALUE new_procs;
     struct enumerator *e = enumerator_ptr(obj);
 
-    if (RTEST(e->procs)) {
-	new_procs = rb_ary_new4(RARRAY_LEN(e->procs), RARRAY_PTR(e->procs));
-    }
-    else {
-	new_procs = rb_ary_new();
-    }
-
+    new_procs = RTEST(e->procs) ? rb_ary_dup(e->procs) : rb_ary_new();
     new_generator = lazy_generator_init(obj, new_procs);
+    rb_ary_push(new_procs, entry_obj);
 
     new_obj = enumerator_init_copy(enumerator_allocate(rb_cLazy), obj);
-    new_e = enumerator_ptr(new_obj);
+    new_e = DATA_PTR(new_obj);
     new_e->obj = new_generator;
     new_e->procs = new_procs;
-    rb_ary_push(new_procs, entry_obj);
 
     if (argc > 0) {
 	new_e->meth = rb_to_id(*argv++);
