@@ -1462,24 +1462,6 @@ lazy_generator_init(VALUE enumerator, VALUE procs)
     return generator;
 }
 
-static VALUE
-lazy_add_proc(VALUE enum_obj, VALUE memo, lazyenum_proc_func *proc_fn)
-{
-    struct enumerator *ptr = enumerator_ptr(enum_obj);
-    struct proc_entry *entry;
-    VALUE entry_obj = TypedData_Make_Struct(rb_cObject, struct proc_entry,
-					    &proc_entry_data_type, entry);
-    if (rb_block_given_p()) {
-	entry->proc = rb_block_proc();
-    }
-    entry->proc_fn = proc_fn;
-    entry->memo = memo;
-
-    rb_ary_push(ptr->procs, entry_obj);
-
-    return entry_obj;
-}
-
 /*
  * call-seq:
  *   Lazy.new(obj, size=nil) { |yielder, *values| ... }
@@ -1554,7 +1536,7 @@ lazy_set_method(VALUE lazy, VALUE args, rb_enumerator_size_func *size_fn)
 }
 
 static VALUE
-lazy_copy(int argc, VALUE *argv, VALUE obj)
+lazy_copy(int argc, VALUE *argv, VALUE obj, VALUE entry_obj)
 {
     struct enumerator *new_e;
     VALUE new_obj;
@@ -1575,6 +1557,7 @@ lazy_copy(int argc, VALUE *argv, VALUE obj)
     new_e = enumerator_ptr(new_obj);
     new_e->obj = new_generator;
     new_e->procs = new_procs;
+    rb_ary_push(new_procs, entry_obj);
 
     if (argc > 0) {
 	new_e->meth = rb_to_id(*argv++);
@@ -1591,11 +1574,18 @@ static VALUE
 lazy_plus_method(VALUE obj, int argc, VALUE *argv, VALUE args, VALUE memo,
 		 lazyenum_proc_func *proc_fn, lazyenum_size_func *size_fn)
 {
-    VALUE new_enum = lazy_copy(argc, argv, obj);
-    VALUE entry = lazy_add_proc(new_enum, args, proc_fn);
-    lazy_set_args(entry, memo);
-    proc_entry_ptr(entry)->size_fn = size_fn;
-    return new_enum;
+    struct proc_entry *entry;
+    VALUE entry_obj = TypedData_Make_Struct(rb_cObject, struct proc_entry,
+						&proc_entry_data_type, entry);
+    if (rb_block_given_p()) {
+	entry->proc = rb_block_proc();
+    }
+    entry->proc_fn = proc_fn;
+    entry->size_fn = size_fn;
+    entry->memo = args;
+
+    lazy_set_args(entry_obj, memo);
+    return lazy_copy(argc, argv, obj, entry_obj);
 }
 
 /*
