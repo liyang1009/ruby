@@ -106,6 +106,26 @@ rb_check_inheritable(VALUE super)
     }
 }
 
+static inline ID id_location(void) {return rb_intern("__location__");}
+
+VALUE
+rb_mod_source_location(VALUE klass)
+{
+    return rb_attr_get(klass, id_location());
+}
+
+static VALUE
+rb_mod_set_location(VALUE klass)
+{
+    VALUE file = rb_sourcefilename();
+    if (!NIL_P(file)) {
+	int line = rb_sourceline();
+	VALUE location = rb_assoc_new(file, INT2FIX(line));
+	OBJ_FREEZE(location);
+	rb_ivar_set(klass, id_location(), location);
+    }
+    return klass;
+}
 
 /*!
  * Creates a new class.
@@ -118,7 +138,7 @@ rb_class_new(VALUE super)
 {
     Check_Type(super, T_CLASS);
     rb_check_inheritable(super);
-    return rb_class_boot(super);
+    return rb_mod_set_location(rb_class_boot(super));
 }
 
 static NODE*
@@ -226,6 +246,8 @@ rb_mod_init_copy(VALUE clone, VALUE orig)
 	st_delete(RCLASS_IV_TBL(clone), &id, 0);
 	CONST_ID(id, "__classid__");
 	st_delete(RCLASS_IV_TBL(clone), &id, 0);
+	CONST_ID(id, "__locationl__");
+	st_delete(RCLASS_IV_TBL(clone), &id, 0);
     }
     if (RCLASS_CONST_TBL(orig)) {
 	struct clone_const_arg arg;
@@ -244,6 +266,7 @@ rb_mod_init_copy(VALUE clone, VALUE orig)
 	RCLASS_M_TBL(clone) = st_init_numtable();
 	st_foreach(RCLASS_M_TBL(orig), clone_method_i, (st_data_t)clone);
     }
+    rb_mod_set_location(clone);
 
     return clone;
 }
@@ -613,6 +636,7 @@ rb_module_new(void)
 
     RCLASS_M_TBL(mdl) = st_init_numtable();
 
+    rb_mod_set_location(mdl);
     return (VALUE)mdl;
 }
 

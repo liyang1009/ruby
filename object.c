@@ -3056,6 +3056,7 @@ rb_f_hash(VALUE obj, VALUE arg)
 void
 Init_Object(void)
 {
+    extern VALUE rb_mod_source_location(VALUE klass);
     int i;
 
     Init_class_hierarchy();
@@ -3225,6 +3226,7 @@ Init_Object(void)
     rb_define_method(rb_cModule, "class_variable_defined?", rb_mod_cvar_defined, 1);
     rb_define_method(rb_cModule, "public_constant", rb_mod_public_constant, -1); /* in variable.c */
     rb_define_method(rb_cModule, "private_constant", rb_mod_private_constant, -1); /* in variable.c */
+    rb_define_method(rb_cModule, "source_location", rb_mod_source_location, 0); /* in class.c */
 
     rb_define_method(rb_cClass, "allocate", rb_obj_alloc, 0);
     rb_define_method(rb_cClass, "new", rb_class_new_instance, -1);

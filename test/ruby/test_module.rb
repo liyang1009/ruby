@@ -5,6 +5,8 @@ require_relative 'envutil'
 $m0 = Module.nesting
 
 class TestModule < Test::Unit::TestCase
+  @defined_line = __LINE__-1
+
   def _wrap_assertion
     yield
   end
@@ -78,11 +80,15 @@ class TestModule < Test::Unit::TestCase
   end
 
   module Other
+    @defined_line = __LINE__-1
+
     def other
     end
   end
 
   class AClass
+    @defined_line = __LINE__-1
+
     def AClass.cm1
       "cm1"
     end
@@ -112,6 +118,8 @@ class TestModule < Test::Unit::TestCase
   end
 
   class BClass < AClass
+    @defined_line = __LINE__-1
+
     def bClass1
       :bClass1
     end
@@ -135,10 +143,19 @@ class TestModule < Test::Unit::TestCase
 
   MyClass = AClass.clone
   class MyClass
+    @defined_line = __LINE__-2
+
     public_class_method :cm1
   end
 
   # -----------------------------------------------------------
+
+  def test_source_location
+    feature8726 = '[ruby-dev:47569] [Feature #8726]'
+    [self.class, Other, AClass, BClass, MyClass].each do |klass|
+      assert_equal([__FILE__, klass.instance_variable_get(:@defined_line)], klass.source_location, feature8726)
+    end
+  end
 
   def test_CMP # '<=>'
     assert_equal( 0, Mixin <=> Mixin)
