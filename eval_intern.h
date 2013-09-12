@@ -83,13 +83,24 @@ extern int select_large_fdset(int, fd_set *, fd_set *, fd_set *, struct timeval 
 
 #include <sys/stat.h>
 
-#define SAVE_ROOT_JMPBUF(th, stmt) do \
-  if (ruby_setjmp((th)->root_jmpbuf) == 0) { \
-      stmt; \
-  } \
-  else { \
-      rb_fiber_start(); \
-  } while (0)
+#ifdef HAVE_SIGSETJMP
+# define ruby_sigsetjmp(env) sigsetjmp((env), 1)
+# define ruby_siglongjmp(env,val) siglongjmp((env),(val))
+#else
+# define ruby_sigsetjmp(env) ruby_setjmp(env)
+# define ruby_siglongjmp(env,val) ruby_longjmp((env),(val))
+#endif
+
+void ruby_root_jumped(rb_thread_t *);
+
+#define SAVE_ROOT_JMPBUF(th, stmt) do { \
+	if (ruby_sigsetjmp((th)->root_jmpbuf) == 0) {	\
+	    stmt;					\
+	}						\
+	else {						\
+	    ruby_root_jumped((th));			\
+	}						\
+    } while (0)
 
 #define TH_PUSH_TAG(th) do { \
   rb_thread_t * const _th = (th); \

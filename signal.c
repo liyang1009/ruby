@@ -623,21 +623,33 @@ rb_get_next_signal(void)
     return sig;
 }
 
+#ifdef SIGSEGV
+static int segv_received = 0;
+#endif
 
 #ifdef USE_SIGALTSTACK
+int ruby_stack_overflowed_p(const rb_thread_t *, const void *);
+NORETURN(void ruby_thread_stack_overflow(rb_thread_t *th));
+
 static void
 check_stack_overflow(const void *addr)
 {
-    int ruby_stack_overflowed_p(const rb_thread_t *, const void *);
-    NORETURN(void ruby_thread_stack_overflow(rb_thread_t *th));
     rb_thread_t *th = GET_THREAD();
     if (ruby_stack_overflowed_p(th, addr)) {
+	segv_received = 2;
+# ifdef HAVE_SIGSETJMP
+	th->errinfo = sysstack_error;
+	ruby_siglongjmp(th->root_jmpbuf, TAG_RAISE);
+# else
 	ruby_thread_stack_overflow(th);
+# endif
     }
 }
 #define CHECK_STACK_OVERFLOW() check_stack_overflow(info->si_addr)
+#define STACK_OVERFLOWING_P() (segv_received == 2)
 #else
 #define CHECK_STACK_OVERFLOW() (void)0
+#define STACK_OVERFLOWING_P() 0
 #endif
 
 #ifdef SIGBUS
@@ -670,7 +682,6 @@ static void ruby_abort(void)
 
 }
 
-static int segv_received = 0;
 extern int ruby_disable_gc_stress;
 
 static RETSIGTYPE
@@ -691,6 +702,19 @@ sigsegv(int sig SIGINFO_ARG)
     rb_bug("Segmentation fault");
 }
 #endif
+
+void
+ruby_root_jumped(rb_thread_t *th)
+{
+#if defined SIGSEGV && defined HAVE_SIGSETJMP
+    if (STACK_OVERFLOWING_P()) {
+	segv_received = 0;
+	th->errinfo = sysstack_error;
+	TH_JUMP_TAG(th, TAG_RAISE);
+    }
+#endif
+    rb_fiber_start();
+}
 
 static void
 signal_exec(VALUE cmd, int safe, int sig)

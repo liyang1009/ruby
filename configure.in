@@ -1899,6 +1899,7 @@ AC_CACHE_CHECK(for sigsetjmp as a macro or function, ac_cv_func_sigsetjmp,
 ], [sigjmp_buf env; sigsetjmp(env,1);],
 	ac_cv_func_sigsetjmp=yes,
 	ac_cv_func_sigsetjmp=no)])
+AS_IF([test x"$ac_cv_func_sigsetjmp" = xyes], [AC_DEFINE(HAVE_SIGSETJMP, 1)])
 
 AC_CACHE_CHECK(for __builtin_setjmp, ac_cv_func___builtin_setjmp,
 [AC_TRY_LINK([@%:@include <setjmp.h>

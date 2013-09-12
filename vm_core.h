@@ -618,7 +618,11 @@ typedef struct rb_thread_struct {
     /* fiber */
     VALUE fiber;
     VALUE root_fiber;
+#ifdef HAVE_SIGSETJMP
+    sigjmp_buf root_jmpbuf;
+#else
     rb_jmpbuf_t root_jmpbuf;
+#endif
 
     /* misc */
     int method_missing_reason;
