@@ -876,6 +876,7 @@ XXX
     @summary_width = width
     @summary_indent = indent
     @default_argv = ARGV
+    @keep_unknown = false
     add_officious
     yield self if block_given?
   end
@@ -948,6 +949,8 @@ XXX
 
   # Strings to be parsed in default.
   attr_accessor :default_argv
+
+  attr_writer :keep_unknown
 
   #
   # Heading banner preceding summary.
@@ -1351,6 +1354,10 @@ XXX
           opt, rest = $1, $2
           begin
             sw, = complete(:long, opt, true)
+            unless sw
+              nonopt.call(arg)
+              next
+            end
           rescue ParseError
             raise $!.set_option(arg, true)
           end
@@ -1370,13 +1377,20 @@ XXX
             unless sw
               begin
                 sw, = complete(:short, opt)
+              rescue InvalidOption
+              end
+              if sw
                 # short option matched.
                 val = arg.sub(/\A-/, '')
                 has_arg = true
-              rescue InvalidOption
+              else
                 # if no short options match, try completion with long
                 # options.
                 sw, = complete(:long, opt)
+                unless sw
+                  nonopt.call(arg)
+                  next
+                end
                 eq ||= !rest
               end
             end
@@ -1540,6 +1554,7 @@ XXX
     end
     raise AmbiguousOption, catch(:ambiguous) {
       visit(:complete, typ, opt, icase, *pat) {|o, *sw| return sw}
+      return if @keep_unknown
       raise InvalidOption, opt
     }
   end
