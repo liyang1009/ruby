@@ -629,6 +629,7 @@ DEPRECATED(int rb_exec(const struct rb_exec_arg*));
 DEPRECATED(int rb_exec_err(const struct rb_exec_arg*, char*, size_t));
 DEPRECATED(rb_pid_t rb_fork(int*, int (*)(void*), void*, VALUE));
 DEPRECATED(rb_pid_t rb_fork_err(int*, int (*)(void*, char*, size_t), void*, VALUE, char*, size_t));
+rb_state_version_t rb_process_generation(void);
 VALUE rb_f_exec(int,VALUE*);
 rb_pid_t rb_waitpid(rb_pid_t pid, int *status, int flags);
 void rb_syswait(rb_pid_t pid);

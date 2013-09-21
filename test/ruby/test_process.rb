@@ -1824,4 +1824,13 @@ EOS
     assert_kind_of(Float, t, "Process.clock_getres(:#{n})")
   end
 
+  def test_process_generation
+    gen = Process.generation
+    assert_kind_of(Integer, gen)
+    assert_operator(gen, :>=, 0)
+    assert_equal("0", IO.popen([RUBY, "-e", "print Process.generation"], &:read))
+    ngen = IO.popen("-") {|f| f ? f.read : print(Process.generation)}
+    assert_operator(Integer(ngen), :>, gen)
+  rescue NotImplementedError, ArgumentError
+  end
 end

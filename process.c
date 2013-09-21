@@ -3148,6 +3148,26 @@ rb_exec_atfork(void* arg, char *errmsg, size_t errmsg_buflen)
 {
     return rb_exec_async_signal_safe(arg, errmsg, errmsg_buflen); /* hopefully async-signal-safe */
 }
+
+static unsigned LONG_LONG process_generation;
+
+uint64_t
+rb_process_generation(void)
+{
+    return process_generation;
+}
+
+static VALUE
+rb_proc_generation(VALUE klass)
+{
+    return ULL2NUM(process_generation);
+}
+#else
+static VALUE
+rb_proc_generation(VALUE klass)
+{
+    return INT2FIX(0);
+}
 #endif
 
 #ifdef HAVE_FORK
@@ -3266,8 +3286,11 @@ retry_fork(int *status, int *ep, int chfunc_is_async_signal_safe)
         if (!chfunc_is_async_signal_safe)
             before_fork();
         pid = fork();
-        if (pid == 0) /* fork succeed, child process */
+        if (pid == 0) { /* fork succeed, child process */
+            process_generation++;
+            forked_child = 1;
             return pid;
+        }
         if (!chfunc_is_async_signal_safe)
             preserving_errno(after_fork());
         if (0 < pid) /* fork succeed, parent process */
@@ -3382,7 +3405,6 @@ rb_fork_internal(int *status, int (*chfunc)(void*, char *, size_t), void *charg,
         if (pid < 0)
             return pid;
         if (!pid) {
-            forked_child = 1;
             after_fork();
         }
         return pid;
@@ -3398,7 +3420,6 @@ rb_fork_internal(int *status, int (*chfunc)(void*, char *, size_t), void *charg,
             return pid;
         if (!pid) {
             int ret;
-            forked_child = 1;
             close(ep[0]);
             if (chfunc_is_async_signal_safe)
                 ret = chfunc(charg, errmsg, errmsg_buflen);
@@ -7339,6 +7360,7 @@ Init_process(void)
     rb_define_singleton_method(rb_mProcess, "exit!", rb_f_exit_bang, -1);
     rb_define_singleton_method(rb_mProcess, "exit", rb_f_exit, -1);
     rb_define_singleton_method(rb_mProcess, "abort", rb_f_abort, -1);
+    rb_define_singleton_method(rb_mProcess, "generation", rb_proc_generation, 0);
 
     rb_define_module_function(rb_mProcess, "kill", rb_f_kill, -1); /* in signal.c */
     rb_define_module_function(rb_mProcess, "wait", proc_wait, -1);

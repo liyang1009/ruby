@@ -143,6 +143,14 @@ void xfree(void*);
 # define SIZEOF_LONG_LONG SIZEOF___INT64
 #endif
 
+#if defined(HAVE_LONG_LONG)
+typedef unsigned LONG_LONG rb_state_version_t;
+#elif defined(HAVE_UINT64_T)
+typedef uint64_t rb_state_version_t;
+#else
+typedef unsigned long rb_state_version_t;
+#endif
+
 #ifndef BDIGIT
 # if defined(HAVE_INT64_T) && defined(HAVE_INT128_T)
 #  define BDIGIT uint64_t
