@@ -1824,4 +1824,10 @@ EOS
     assert_kind_of(Float, t, "Process.clock_getres(:#{n})")
   end
 
+  def test_process_generation
+    gen = Process.generation
+    assert_predicate(gen, :current?)
+    assert_equal("false", ngen = IO.popen("-") {|f| f ? f.read : print(gen.current?)})
+  rescue NotImplementedError, ArgumentError
+  end
 end

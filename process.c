@@ -3150,6 +3150,62 @@ rb_exec_atfork(void* arg, char *errmsg, size_t errmsg_buflen)
 }
 #endif
 
+static const rb_data_type_t proc_gen_type = {
+    "Process::Generation",
+};
+
+static VALUE rb_cProcGen, proc_current_gen;
+
+static VALUE
+proc_gen_current(VALUE klass)
+{
+    if (!proc_current_gen) {
+	proc_current_gen =
+	    TypedData_Wrap_Struct(klass, &proc_gen_type, (void *)TRUE);
+    }
+    return proc_current_gen;
+}
+
+VALUE
+rb_process_generation(void)
+{
+    return proc_gen_current(rb_cProcGen);
+}
+
+static VALUE
+proc_generation(VALUE m)
+{
+    return rb_process_generation();
+}
+
+#ifdef HAVE_FORK
+static void
+proc_gen_dispose(void)
+{
+    VALUE obj = proc_current_gen;
+    proc_current_gen = 0;
+    if (obj) DATA_PTR(obj) = NULL;
+}
+#endif
+
+static VALUE
+proc_gen_current_p(VALUE obj)
+{
+    return rb_check_typeddata(obj, &proc_gen_type) ? Qtrue : Qfalse;
+}
+
+static void
+Init_proc_gen(VALUE m)
+{
+    VALUE cGen = rb_define_class_under(m, "Generation", rb_cData);
+
+    rb_cProcGen = cGen;
+    rb_define_singleton_method(m, "generation", proc_generation, 0);
+    rb_define_singleton_method(cGen, "current", proc_gen_current, 0);
+    rb_define_method(cGen, "current?", proc_gen_current_p, 0);
+    rb_gc_register_address(&proc_current_gen);
+}
+
 #ifdef HAVE_FORK
 #if SIZEOF_INT == SIZEOF_LONG
 #define proc_syswait (VALUE (*)(VALUE))rb_syswait
@@ -3266,8 +3322,11 @@ retry_fork(int *status, int *ep, int chfunc_is_async_signal_safe)
         if (!chfunc_is_async_signal_safe)
             before_fork();
         pid = fork();
-        if (pid == 0) /* fork succeed, child process */
+        if (pid == 0) { /* fork succeed, child process */
+            forked_child = 1;
+            proc_gen_dispose();
             return pid;
+        }
         if (!chfunc_is_async_signal_safe)
             preserving_errno(after_fork());
         if (0 < pid) /* fork succeed, parent process */
@@ -3382,7 +3441,6 @@ rb_fork_internal(int *status, int (*chfunc)(void*, char *, size_t), void *charg,
         if (pid < 0)
             return pid;
         if (!pid) {
-            forked_child = 1;
             after_fork();
         }
         return pid;
@@ -3398,7 +3456,6 @@ rb_fork_internal(int *status, int (*chfunc)(void*, char *, size_t), void *charg,
             return pid;
         if (!pid) {
             int ret;
-            forked_child = 1;
             close(ep[0]);
             if (chfunc_is_async_signal_safe)
                 ret = chfunc(charg, errmsg, errmsg_buflen);
@@ -7675,4 +7732,6 @@ Init_process(void)
     rb_define_module_function(rb_mProcID_Syscall, "setresuid", p_sys_setresuid, 3);
     rb_define_module_function(rb_mProcID_Syscall, "setresgid", p_sys_setresgid, 3);
     rb_define_module_function(rb_mProcID_Syscall, "issetugid", p_sys_issetugid, 0);
+
+    Init_proc_gen(rb_mProcess);
 }
