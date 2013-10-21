@@ -188,6 +188,7 @@ module WEBrick
           options = { :FancyIndexing => options }
         end
         @options = default.dup.update(options)
+        @encoding ||= Encoding.find(@options[:Encoding] || @config[:Encoding] || 'filesystem')
       end
 
       # :stopdoc:
@@ -262,7 +263,7 @@ module WEBrick
 
         # dirty hack for filesystem encoding; in nature, File.expand_path
         # should not be used for path normalization.  [Bug #3345]
-        path = req.path_info.dup.force_encoding(Encoding.find("filesystem"))
+        path = req.path_info.dup.force_encoding(@encoding)
         if trailing_pathsep?(req.path_info)
           # File.expand_path removes the trailing path separator.
           # Adding a character is a workaround to save it.
@@ -273,7 +274,6 @@ module WEBrick
         else
           expanded = File.expand_path(path)
         end
-        expanded.force_encoding(req.path_info.encoding)
         req.path_info = expanded
       end
 
@@ -409,7 +409,8 @@ module WEBrick
           raise HTTPStatus::Forbidden, "no access permission to `#{req.path}'"
         end
         local_path = res.filename
-        list = Dir::entries(local_path).collect{|name|
+        enc = @encoding
+        list = Dir::entries(local_path, encoding: enc).collect{|name|
           next if name == "." || name == ".."
           next if nondisclosure_name?(name)
           next if windows_ambiguous_name?(name)
@@ -453,14 +454,14 @@ module WEBrick
         query = ['', *query.map {|k, v| HTTPUtils::escape("#{k}=#{v}")}] * '&'
 
         type = "text/html"
-        case enc = Encoding.find('filesystem')
+        case enc
         when Encoding::US_ASCII, Encoding::ASCII_8BIT
         else
           type << "; charset=\"#{enc.name}\""
         end
         res['content-type'] = type
 
-        title = "Index of #{HTMLUtils::escape(req.path)}"
+        title = "Index of #{HTMLUtils::escape(req.path).force_encoding(enc)}"
         res.body = <<-_end_of_html_
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
 <HTML>

@@ -307,12 +307,14 @@ end
 #   --do-not-reverse-lookup     disable reverse lookup
 #   --request-timeout=SECOND    request timeout in seconds
 #   --http-version=VERSION      HTTP version
+#   --encoding=ENCODING         default encoding
 #   -v                          verbose
 #
 
 def httpd
   setup("", "BindAddress=ADDR", "Port=PORT", "MaxClients=NUM", "TempDir=DIR",
-        "DoNotReverseLookup", "RequestTimeout=SECOND", "HTTPVersion=VERSION") do
+        "DoNotReverseLookup", "RequestTimeout=SECOND", "HTTPVersion=VERSION",
+        "Encoding=ENCODING") do
     |argv, options|
     require 'webrick'
     opt = options[:RequestTimeout] and options[:RequestTimeout] = opt.to_i

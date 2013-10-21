@@ -301,4 +301,31 @@ class WEBrick::TestFileHandler < Test::Unit::TestCase
       }
     end
   end
+
+  def test_index_encoding
+    Dir.mktmpdir("webrick") do |tmpdir|
+      begin
+        Dir.chdir(tmpdir) do
+          File.open("\xD7\xC0\xC3\xE6.txt".force_encoding("gbk"), "w") {}
+        end
+      rescue => e
+        skip e.message
+      end
+
+      config = {DocumentRoot: tmpdir, Encoding: "gbk"}
+
+      TestWEBrick.start_httpserver(config) do |server, addr, port, log|
+        http = Net::HTTP.new(addr, port)
+        req = Net::HTTP::Get.new("/")
+        http.request(req) {|res|
+          assert_equal("200", res.code, log.call)
+          assert_equal("text/html", res.content_type, log.call)
+          assert_predicate(res.body, :valid_encoding?)
+          query = res.body[/HREF="\?N=[AD]([^"]*)"/]
+          assert_predicate(query, :ascii_only?)
+          assert_match(/&%ff%fe/i, query, log.call)
+        }
+      end
+    end
+  end
 end
