@@ -284,4 +284,21 @@ class WEBrick::TestFileHandler < Test::Unit::TestCase
       http.request(req, &response_assertion)
     end
   end
+
+  def test_query_encoding
+    config = { :DocumentRoot => File.dirname(__FILE__), }
+
+    TestWEBrick.start_httpserver(config) do |server, addr, port, log|
+      http = Net::HTTP.new(addr, port)
+      req = Net::HTTP::Get.new("/?%ff%fe")
+      http.request(req) {|res|
+        assert_equal("200", res.code, log.call)
+        assert_equal("text/html", res.content_type, log.call)
+        assert_predicate(res.body, :valid_encoding?)
+        query = res.body[/HREF="\?N=[AD]([^"]*)"/]
+        assert_predicate(query, :ascii_only?)
+        assert_match(/&%ff%fe/i, query, log.call)
+      }
+    end
+  end
 end

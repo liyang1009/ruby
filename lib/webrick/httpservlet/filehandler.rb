@@ -450,7 +450,7 @@ module WEBrick
         elsif !namewidth or (namewidth = namewidth.to_i) < 2
           namewidth = 25
         end
-        query = query.inject('') {|s, (k, v)| s << '&' << HTMLUtils::escape("#{k}=#{v}")}
+        query = ['', *query.map {|k, v| HTTPUtils::escape("#{k}=#{v}")}] * '&'
 
         type = "text/html"
         case enc = Encoding.find('filesystem')
@@ -496,7 +496,7 @@ module WEBrick
           else
             dname = name
           end
-          s =  "<TR><TD class=\"name\"><A HREF=\"#{HTTPUtils::escape(name)}\">#{HTMLUtils::escape(dname)}</A></TD>"
+          s =  "<TR><TD class=\"name\"><A HREF=\"#{HTTPUtils::escape_path(name)}\">#{HTMLUtils::escape(dname)}</A></TD>"
           s << "<TD class=\"mtime\">" << (time ? time.strftime("%Y/%m/%d %H:%M") : "") << "</TD>"
           s << "<TD class=\"size\">" << (size >= 0 ? size.to_s : "-") << "</TD></TR>\n"
           res.body << s
