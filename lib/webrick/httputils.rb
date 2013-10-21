@@ -492,11 +492,7 @@ module WEBrick
     # Escapes path +str+
 
     def escape_path(str)
-      result = ""
-      str.scan(%r{/([^/]*)}).each{|i|
-        result << "/" << _escape(i[0], UNESCAPED_PCHAR)
-      }
-      return result
+      str.gsub(%r{([^/]+)}) {|i| _escape(i, UNESCAPED_PCHAR)}
     end
 
     ##

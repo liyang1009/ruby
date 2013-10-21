@@ -96,5 +96,6 @@ class TestWEBrickHTTPUtils < Test::Unit::TestCase
     assert_equal("/foo/bar", escape_path("/foo/bar"))
     assert_equal("/foo/bar/", escape_path("/foo/bar/"))
     assert_equal("/%25foo/bar/", escape_path("/%foo/bar/"))
+    assert_equal("%3Ffoo/bar/", escape_path("?foo/bar/"))
   end
 end
