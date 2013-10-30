@@ -5395,7 +5395,7 @@ io_check_tty(rb_io_t *fptr)
 }
 
 static VALUE rb_io_internal_encoding(VALUE);
-static void io_encoding_set(rb_io_t *, VALUE, VALUE, VALUE);
+static void io_encoding_set(VALUE, rb_io_t *, VALUE, VALUE, VALUE);
 
 static int
 io_strip_bom(VALUE io)
@@ -5468,8 +5468,8 @@ io_set_encoding_by_bom(VALUE io)
 
     GetOpenFile(io, fptr);
     if (idx) {
-	io_encoding_set(fptr, rb_enc_from_encoding(rb_enc_from_index(idx)),
-		rb_io_internal_encoding(io), Qnil);
+	io_encoding_set(io, fptr, rb_enc_from_encoding(rb_enc_from_index(idx)),
+			rb_io_internal_encoding(io), Qnil);
     }
     else {
 	fptr->encs.enc2 = NULL;
@@ -7842,7 +7842,9 @@ argf_next_argv(VALUE argf)
 	    if (ARGF.binmode) rb_io_ascii8bit_binmode(ARGF.current_file);
 	    GetOpenFile(ARGF.current_file, fptr);
 	    if (ARGF.encs.enc) {
+		VALUE oldecopts = fptr->encs.ecopts;
 		fptr->encs = ARGF.encs;
+		OBJ_WRITTEN(ARGF.current_file, oldecopts, ARGF.encs.ecopts);
                 clear_codeconv(fptr);
 	    }
 	    else {
@@ -9231,7 +9233,7 @@ find_encoding(VALUE v)
 }
 
 static void
-io_encoding_set(rb_io_t *fptr, VALUE v1, VALUE v2, VALUE opt)
+io_encoding_set(VALUE io, rb_io_t *fptr, VALUE v1, VALUE v2, VALUE opt)
 {
     rb_encoding *enc, *enc2;
     int ecflags = fptr->encs.ecflags;
@@ -9288,7 +9290,7 @@ io_encoding_set(rb_io_t *fptr, VALUE v1, VALUE v2, VALUE opt)
     fptr->encs.enc = enc;
     fptr->encs.enc2 = enc2;
     fptr->encs.ecflags = ecflags;
-    fptr->encs.ecopts = ecopts;
+    OBJ_WRITE(io, &fptr->encs.ecopts, ecopts);
     clear_codeconv(fptr);
 
 }
@@ -9384,7 +9386,7 @@ rb_io_s_pipe(int argc, VALUE *argv, VALUE klass)
 	rb_jump_tag(state);
     }
     GetOpenFile(r, fptr);
-    io_encoding_set(fptr, v1, v2, opt);
+    io_encoding_set(r, fptr, v1, v2, opt);
     args[1] = INT2NUM(pipes[1]);
     args[2] = INT2FIX(O_WRONLY);
     w = rb_protect(io_new_instance, (VALUE)args, &state);
@@ -10529,7 +10531,7 @@ rb_io_set_encoding(int argc, VALUE *argv, VALUE io)
 
     argc = rb_scan_args(argc, argv, "11:", &v1, &v2, &opt);
     GetOpenFile(io, fptr);
-    io_encoding_set(fptr, v1, v2, opt);
+    io_encoding_set(io, fptr, v1, v2, opt);
     return io;
 }
 
@@ -10633,6 +10635,7 @@ argf_set_encoding(int argc, VALUE *argv, VALUE argf)
     rb_io_set_encoding(argc, argv, ARGF.current_file);
     GetOpenFile(ARGF.current_file, fptr);
     ARGF.encs = fptr->encs;
+    OBJ_WRITTEN(argf, Qundef, ARGF.encs.ecopts);
     return argf;
 }
 

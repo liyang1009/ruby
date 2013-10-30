@@ -168,11 +168,11 @@ static const rb_data_type_t enumerator_data_type = {
 	enumerator_free,
 	enumerator_memsize,
     },
-    NULL, NULL, RUBY_TYPED_FREE_IMMEDIATELY
+    NULL, NULL, RUBY_TYPED_FREE_IMMEDIATELY | RUBY_TYPED_WB_PROTECTED,
 };
 
 static struct enumerator *
-enumerator_ptr(VALUE obj)
+enumerator_raw_ptr(VALUE obj)
 {
     struct enumerator *ptr;
 
@@ -181,6 +181,12 @@ enumerator_ptr(VALUE obj)
 	rb_raise(rb_eArgError, "uninitialized enumerator");
     }
     return ptr;
+}
+
+static const struct enumerator *
+enumerator_ptr(VALUE obj)
+{
+    return enumerator_raw_ptr(obj);
 }
 
 /*
@@ -249,7 +255,7 @@ obj_to_enum(int argc, VALUE *argv, VALUE obj)
     }
     enumerator = rb_enumeratorize_with_size(obj, meth, argc, argv, 0);
     if (rb_block_given_p()) {
-	enumerator_ptr(enumerator)->size = rb_block_proc();
+	OBJ_WRITE(enumerator, &enumerator_ptr(enumerator)->size, rb_block_proc());
     }
     return enumerator;
 }
@@ -278,15 +284,15 @@ enumerator_init(VALUE enum_obj, VALUE obj, VALUE meth, int argc, VALUE *argv, rb
 	rb_raise(rb_eArgError, "unallocated enumerator");
     }
 
-    ptr->obj  = obj;
+    OBJ_WRITE(enum_obj, &ptr->obj, obj);
     ptr->meth = rb_to_id(meth);
-    if (argc) ptr->args = rb_ary_new4(argc, argv);
+    if (argc) OBJ_WRITE(enum_obj, &ptr->args, rb_ary_new4(argc, argv));
     ptr->fib = 0;
     ptr->dst = Qnil;
     ptr->lookahead = Qundef;
     ptr->feedvalue = Qundef;
     ptr->stop_exc = Qfalse;
-    ptr->size = size;
+    OBJ_WRITE(enum_obj, &ptr->size, size);
     ptr->size_fn = size_fn;
 
     return enum_obj;
@@ -367,7 +373,8 @@ enumerator_initialize(int argc, VALUE *argv, VALUE obj)
 static VALUE
 enumerator_init_copy(VALUE obj, VALUE orig)
 {
-    struct enumerator *ptr0, *ptr1;
+    const struct enumerator *ptr0;
+    struct enumerator *ptr1;
 
     if (!OBJ_INIT_COPY(obj, orig)) return obj;
     ptr0 = enumerator_ptr(orig);
@@ -382,13 +389,13 @@ enumerator_init_copy(VALUE obj, VALUE orig)
 	rb_raise(rb_eArgError, "unallocated enumerator");
     }
 
-    ptr1->obj  = ptr0->obj;
-    ptr1->meth = ptr0->meth;
-    ptr1->args = ptr0->args;
+    OBJ_WRITE(obj, &ptr1->obj,  ptr0->obj);
+    OBJ_WRITE(obj, &ptr1->meth, ptr0->meth);
+    OBJ_WRITE(obj, &ptr1->args, ptr0->args);
     ptr1->fib  = 0;
     ptr1->lookahead  = Qundef;
     ptr1->feedvalue  = Qundef;
-    ptr1->size  = ptr0->size;
+    OBJ_WRITE(obj, &ptr1->size, ptr0->size);
     ptr1->size_fn  = ptr0->size_fn;
 
     return obj;
@@ -473,7 +480,7 @@ static VALUE
 enumerator_each(int argc, VALUE *argv, VALUE obj)
 {
     if (argc > 0) {
-	struct enumerator *e = enumerator_ptr(obj = rb_obj_dup(obj));
+	const struct enumerator *e = enumerator_ptr(obj = rb_obj_dup(obj));
 	VALUE args = e->args;
 	if (args) {
 #if SIZEOF_INT < SIZEOF_LONG
@@ -486,7 +493,7 @@ enumerator_each(int argc, VALUE *argv, VALUE obj)
 	else {
 	    args = rb_ary_new4(argc, argv);
 	}
-	e->args = args;
+	OBJ_WRITE(obj, &e->args, args);
     }
     if (!rb_block_given_p()) return obj;
     return enumerator_block_call(obj, 0, obj);
@@ -606,13 +613,13 @@ enumerator_with_object(VALUE obj, VALUE memo)
 static VALUE
 next_ii(VALUE i, VALUE obj, int argc, VALUE *argv)
 {
-    struct enumerator *e = enumerator_ptr(obj);
+    const struct enumerator *e = enumerator_ptr(obj);
     VALUE feedvalue = Qnil;
     VALUE args = rb_ary_new4(argc, argv);
     rb_fiber_yield(1, &args);
     if (e->feedvalue != Qundef) {
         feedvalue = e->feedvalue;
-        e->feedvalue = Qundef;
+        OBJ_WRITE(obj, &e->feedvalue, Qundef);
     }
     return feedvalue;
 }
@@ -620,12 +627,12 @@ next_ii(VALUE i, VALUE obj, int argc, VALUE *argv)
 static VALUE
 next_i(VALUE curr, VALUE obj)
 {
-    struct enumerator *e = enumerator_ptr(obj);
+    const struct enumerator *e = enumerator_ptr(obj);
     VALUE nil = Qnil;
     VALUE result;
 
     result = rb_block_call(obj, id_each, 0, 0, next_ii, obj);
-    e->stop_exc = rb_exc_new2(rb_eStopIteration, "iteration reached an end");
+    OBJ_WRITE(obj, &e->stop_exc, rb_exc_new2(rb_eStopIteration, "iteration reached an end"));
     rb_ivar_set(e->stop_exc, id_result, result);
     return rb_fiber_yield(1, &nil);
 }
@@ -634,8 +641,8 @@ static void
 next_init(VALUE obj, struct enumerator *e)
 {
     VALUE curr = rb_fiber_current();
-    e->dst = curr;
-    e->fib = rb_fiber_new(next_i, obj);
+    OBJ_WRITE(obj, &e->dst, curr);
+    OBJ_WRITE(obj, &e->fib, rb_fiber_new(next_i, obj));
     e->lookahead = Qundef;
 }
 
@@ -714,12 +721,12 @@ get_next_values(VALUE obj, struct enumerator *e)
 static VALUE
 enumerator_next_values(VALUE obj)
 {
-    struct enumerator *e = enumerator_ptr(obj);
+    struct enumerator *e = enumerator_raw_ptr(obj);
     VALUE vs;
 
     if (e->lookahead != Qundef) {
         vs = e->lookahead;
-        e->lookahead = Qundef;
+        OBJ_WRITE(obj, &e->lookahead, Qundef);
         return vs;
     }
 
@@ -778,10 +785,10 @@ enumerator_next(VALUE obj)
 static VALUE
 enumerator_peek_values(VALUE obj)
 {
-    struct enumerator *e = enumerator_ptr(obj);
+    struct enumerator *e = enumerator_raw_ptr(obj);
 
     if (e->lookahead == Qundef) {
-        e->lookahead = get_next_values(obj, e);
+        OBJ_WRITE(obj, &e->lookahead, get_next_values(obj, e));
     }
     return e->lookahead;
 }
@@ -898,12 +905,12 @@ enumerator_peek(VALUE obj)
 static VALUE
 enumerator_feed(VALUE obj, VALUE v)
 {
-    struct enumerator *e = enumerator_ptr(obj);
+    const struct enumerator *e = enumerator_ptr(obj);
 
     if (e->feedvalue != Qundef) {
 	rb_raise(rb_eTypeError, "feed value already set");
     }
-    e->feedvalue = v;
+    OBJ_WRITE(obj, &e->feedvalue, v);
 
     return Qnil;
 }
@@ -920,7 +927,7 @@ enumerator_feed(VALUE obj, VALUE v)
 static VALUE
 enumerator_rewind(VALUE obj)
 {
-    struct enumerator *e = enumerator_ptr(obj);
+    struct enumerator *e = enumerator_raw_ptr(obj);
 
     rb_check_funcall(e->obj, id_rewind, 0, 0);
 
@@ -937,7 +944,7 @@ static VALUE append_method(VALUE obj, VALUE str, ID default_method, VALUE defaul
 static VALUE
 inspect_enumerator(VALUE obj, VALUE dummy, int recur)
 {
-    struct enumerator *e;
+    const struct enumerator *e;
     VALUE eobj, str, cname;
 
     TypedData_Get_Struct(obj, struct enumerator, &enumerator_data_type, e);
@@ -1035,7 +1042,7 @@ enumerator_inspect(VALUE obj)
 static VALUE
 enumerator_size(VALUE obj)
 {
-    struct enumerator *e = enumerator_ptr(obj);
+    const struct enumerator *e = enumerator_ptr(obj);
     int argc = 0;
     const VALUE *argv = NULL;
     VALUE size;
@@ -1077,10 +1084,10 @@ static const rb_data_type_t yielder_data_type = {
 	yielder_free,
 	yielder_memsize,
     },
-    NULL, NULL, RUBY_TYPED_FREE_IMMEDIATELY
+    NULL, NULL, RUBY_TYPED_FREE_IMMEDIATELY | RUBY_TYPED_WB_PROTECTED,
 };
 
-static struct yielder *
+static const struct yielder *
 yielder_ptr(VALUE obj)
 {
     struct yielder *ptr;
@@ -1134,7 +1141,7 @@ yielder_initialize(VALUE obj)
 static VALUE
 yielder_yield(VALUE obj, VALUE args)
 {
-    struct yielder *ptr = yielder_ptr(obj);
+    const struct yielder *ptr = yielder_ptr(obj);
 
     return rb_proc_call(ptr->proc, args);
 }
@@ -1183,10 +1190,10 @@ static const rb_data_type_t generator_data_type = {
 	generator_free,
 	generator_memsize,
     },
-    NULL, NULL, RUBY_TYPED_FREE_IMMEDIATELY
+    NULL, NULL, RUBY_TYPED_FREE_IMMEDIATELY | RUBY_TYPED_WB_PROTECTED,
 };
 
-static struct generator *
+static const struct generator *
 generator_ptr(VALUE obj)
 {
     struct generator *ptr;
@@ -1223,7 +1230,7 @@ generator_init(VALUE obj, VALUE proc)
 	rb_raise(rb_eArgError, "unallocated generator");
     }
 
-    ptr->proc = proc;
+    OBJ_WRITE(obj, &ptr->proc, proc);
 
     return obj;
 }
@@ -1259,7 +1266,8 @@ generator_initialize(int argc, VALUE *argv, VALUE obj)
 static VALUE
 generator_init_copy(VALUE obj, VALUE orig)
 {
-    struct generator *ptr0, *ptr1;
+    const struct generator *ptr0;
+    struct generator *ptr1;
 
     if (!OBJ_INIT_COPY(obj, orig)) return obj;
 
@@ -1271,7 +1279,7 @@ generator_init_copy(VALUE obj, VALUE orig)
 	rb_raise(rb_eArgError, "unallocated generator");
     }
 
-    ptr1->proc = ptr0->proc;
+    OBJ_WRITE(obj, &ptr1->proc, ptr0->proc);
 
     return obj;
 }
@@ -1280,7 +1288,7 @@ generator_init_copy(VALUE obj, VALUE orig)
 static VALUE
 generator_each(int argc, VALUE *argv, VALUE obj)
 {
-    struct generator *ptr = generator_ptr(obj);
+    const struct generator *ptr = generator_ptr(obj);
     VALUE args = rb_ary_new2(argc + 1);
 
     rb_ary_push(args, yielder_new());
@@ -1404,7 +1412,7 @@ static VALUE
 lazy_set_method(VALUE lazy, VALUE args, rb_enumerator_size_func *size_fn)
 {
     ID id = rb_frame_this_func();
-    struct enumerator *e = enumerator_ptr(lazy);
+    struct enumerator *e = enumerator_raw_ptr(lazy);
     rb_ivar_set(lazy, id_method, ID2SYM(id));
     if (NIL_P(args)) {
 	/* Qfalse indicates that the arguments are empty */
@@ -1498,7 +1506,7 @@ lazy_to_enum(int argc, VALUE *argv, VALUE self)
     }
     lazy = lazy_to_enum_i(self, meth, argc, argv, 0);
     if (rb_block_given_p()) {
-	enumerator_ptr(lazy)->size = rb_block_proc();
+	OBJ_WRITE(lazy, &enumerator_raw_ptr(lazy)->size, rb_block_proc());
     }
     return lazy;
 }

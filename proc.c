@@ -110,8 +110,16 @@ proc_dup(VALUE self)
 
     dst->block = src->block;
     dst->block.proc = procval;
-    dst->blockprocval = src->blockprocval;
-    dst->envval = src->envval;
+#if USE_RGENGC
+    OBJ_WRITTEN(procval, Qundef, dst->block.self);
+    OBJ_WRITTEN(procval, Qundef, dst->block.klass);
+    OBJ_WRITTEN(procval, Qundef, dst->block.proc);
+    if (dst->block.iseq && RUBY_VM_IFUNC_P(dst->block.iseq)) {
+	OBJ_WRITTEN(procval, Qundef, (VALUE)dst->block.iseq);
+    }
+#endif
+    OBJ_WRITE(procval, &dst->blockprocval, src->blockprocval);
+    OBJ_WRITE(procval, &dst->envval, src->envval);
     dst->safe_level = src->safe_level;
     dst->is_lambda = src->is_lambda;
 
@@ -277,7 +285,7 @@ const rb_data_type_t ruby_binding_data_type = {
 	binding_free,
 	binding_memsize,
     },
-    NULL, NULL, RUBY_TYPED_FREE_IMMEDIATELY
+    NULL, NULL, RUBY_TYPED_FREE_IMMEDIATELY | RUBY_TYPED_WB_PROTECTED,
 };
 
 static VALUE
@@ -297,8 +305,8 @@ binding_dup(VALUE self)
     rb_binding_t *src, *dst;
     GetBindingPtr(self, src);
     GetBindingPtr(bindval, dst);
-    dst->env = src->env;
-    dst->path = src->path;
+    OBJ_WRITE(bindval, &dst->env, src->env);
+    OBJ_WRITE(bindval, &dst->path, src->path);
     dst->first_lineno = src->first_lineno;
     return bindval;
 }
@@ -334,8 +342,8 @@ rb_binding_new_with_cfp(rb_thread_t *th, const rb_control_frame_t *src_cfp)
 
     bindval = binding_alloc(rb_cBinding);
     GetBindingPtr(bindval, bind);
-    bind->env = envval;
-    bind->path = ruby_level_cfp->iseq->location.path;
+    OBJ_WRITE(bindval, &bind->env, envval);
+    OBJ_WRITE(bindval, &bind->path, ruby_level_cfp->iseq->location.path);
     bind->first_lineno = rb_vm_get_sourceline(ruby_level_cfp);
 
     return bindval;
@@ -1664,7 +1672,7 @@ rb_mod_define_method(int argc, VALUE *argv, VALUE mod)
 	    OBJ_WRITE(proc->block.iseq->self, &proc->block.iseq->klass, mod);
 	    proc->is_lambda = TRUE;
 	    proc->is_from_method = TRUE;
-	    proc->block.klass = mod;
+	    OBJ_WRITE(body, &proc->block.klass, mod);
 	}
 	rb_add_method(mod, id, VM_METHOD_TYPE_BMETHOD, (void *)body, noex);
 	if (noex == NOEX_MODFUNC) {
@@ -2382,7 +2390,7 @@ proc_binding(VALUE self)
 
     bindval = binding_alloc(rb_cBinding);
     GetBindingPtr(bindval, bind);
-    bind->env = proc->envval;
+    OBJ_WRITE(bindval, &bind->env, proc->envval);
     if (RUBY_VM_NORMAL_ISEQ_P(proc->block.iseq)) {
 	bind->path = proc->block.iseq->location.path;
 	bind->first_lineno = FIX2INT(rb_iseq_first_lineno(proc->block.iseq->self));

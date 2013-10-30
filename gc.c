@@ -5033,12 +5033,11 @@ vm_malloc_increase(rb_objspace_t *objspace, size_t new_size, size_t old_size, in
     else {
 	size_t sub = old_size - new_size;
 	if (sub != 0) {
-	  retry_sub:;
-	    {
-		size_t old_increase = malloc_increase;
-		size_t new_increase = old_increase > sub ? old_increase - sub : 0;
-		if (ATOMIC_SIZE_CAS(malloc_increase, old_increase, new_increase) != old_increase) goto retry_sub;
-	    }
+	    size_t old_increase, new_increase;
+	    do {
+		old_increase = malloc_increase;
+		new_increase = old_increase > sub ? old_increase - sub : 0;
+	    } while (ATOMIC_SIZE_CAS(malloc_increase, old_increase, new_increase) != old_increase);
 	}
     }
 
@@ -5047,13 +5046,12 @@ vm_malloc_increase(rb_objspace_t *objspace, size_t new_size, size_t old_size, in
 	    garbage_collect_with_gvl(objspace, 0, 0, GPR_FLAG_MALLOC);
 	}
 	else {
-	  retry:
-	    if (malloc_increase > malloc_limit) {
-		if (is_lazy_sweeping(heap_eden)) {
-		    gc_rest_sweep(objspace); /* rest_sweep can reduce malloc_increase */
-		    goto retry;
+	    while (malloc_increase > malloc_limit) {
+		if (!is_lazy_sweeping(heap_eden)) {
+		    garbage_collect_with_gvl(objspace, 0, 0, GPR_FLAG_MALLOC);
+		    break;
 		}
-		garbage_collect_with_gvl(objspace, 0, 0, GPR_FLAG_MALLOC);
+		gc_rest_sweep(objspace); /* rest_sweep can reduce malloc_increase */
 	    }
 	}
     }
