@@ -73,6 +73,55 @@ class WeakRef < Delegator
 
   @@__map = ::ObjectSpace::WeakMap.new
 
+  class << (@@__wrapper = Object.new) # :nodoc:
+    def inspect
+      obj = get
+      "#<WeakRef:#{obj ? obj.inspect : 'dead'}>"
+    end
+
+    def get
+      @@__map[self]
+    end
+
+    def weakref_alive?
+      !!@@__map[self]
+    end
+
+    freeze
+  end
+
+  @@__const_wrapper = Struct.new(:get) # :nodoc:
+  @@__const_wrapper.class_eval do
+    def weakref_alive?
+      true
+    end
+  end
+
+  def self.[](obj)
+    case obj
+    when true, false, nil, ::Symbol, ::Fixnum, ::Float
+      @@__const_wrapper.new(obj)
+    else
+      @@__map[w = @@__wrapper.clone] = obj
+      w
+    end
+  end
+
+  def self.new(*)
+    if $VERBOSE
+      label = caller_locations(1, 1)[0].to_s.freeze
+      (@__warned ||= {})[label] ||=
+        begin
+          warn <<-MSG
+#{label}: WeakRef.new with delegation is deprecated, use WeakRef[]
+#{label}: instead and use `get' method to achieve the target object.
+          MSG
+          true
+        end
+    end
+    super
+  end
+
   ##
   # Creates a weak reference to +orig+
   #
