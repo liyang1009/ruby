@@ -73,7 +73,7 @@ class WeakRef < Delegator
 
   @@__map = ::ObjectSpace::WeakMap.new
 
-  class << (@@__wrapper = Object.new) # :nodoc:
+  @@__wrapper = Class.new do
     def inspect
       obj = get
       "#<WeakRef:#{obj ? obj.inspect : 'dead'}>"
@@ -98,11 +98,12 @@ class WeakRef < Delegator
   end
 
   def self.[](obj)
+    return obj if @@__wrapper === obj
     case obj
     when true, false, nil, ::Symbol, ::Fixnum, ::Float
       @@__const_wrapper.new(obj)
     else
-      @@__map[w = @@__wrapper.clone] = obj
+      @@__map[w = @@__wrapper.new] = obj
       w
     end
   end
