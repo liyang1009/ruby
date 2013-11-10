@@ -783,9 +783,25 @@ rb_exc_set_backtrace(VALUE exc, VALUE bt)
 VALUE
 exc_cause(VALUE exc)
 {
+    VALUE cause;
     ID id_cause;
     CONST_ID(id_cause, "cause");
-    return rb_attr_get(exc, id_cause);
+
+    cause = rb_attr_get(exc, id_cause);
+#if defined SUPPORT_JOKE && SUPPORT_JOKE
+    if (NIL_P(cause)) {
+	ID id_true_cause;
+	CONST_ID(id_true_cause, "true_cause");
+
+	cause = rb_attr_get(rb_eFatal, id_true_cause);
+	if (NIL_P(cause)) {
+	    cause = rb_exc_new_cstr(rb_eFatal, "because using such Ruby");
+	    OBJ_FREEZE(cause);
+	    rb_ivar_set(rb_eFatal, id_true_cause, cause);
+	}
+    }
+#endif
+    return cause;
 }
 
 static VALUE
