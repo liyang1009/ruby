@@ -404,6 +404,24 @@ end.join
     end
   end
 
+  def test_name_error
+    klass = Class.new
+    e = assert_raise(NameError) {klass::NoName}
+    assert_same(klass, e.receiver)
+    assert_equal(:NoName, e.name)
+
+    obj = BasicObject.new
+    e = assert_raise(NameError) {obj.instance_eval {foo}}
+    assert_same(obj, e.receiver)
+  end
+
+  def test_undefined_method_error
+    obj = BasicObject.new
+    e = assert_raise(NoMethodError) {obj.foo(1,2,3)}
+    assert_same(obj, e.receiver)
+    assert_equal([1,2,3], e.args)
+  end
+
   def test_equal
     bug5865 = '[ruby-core:41979]'
     assert_equal(RuntimeError.new("a"), RuntimeError.new("a"), bug5865)

@@ -41,6 +41,8 @@ VALUE rb_eEAGAIN;
 VALUE rb_eEWOULDBLOCK;
 VALUE rb_eEINPROGRESS;
 
+static ID id_receiver;
+
 extern const char ruby_description[];
 
 #define REPORTBUG_MSG \
@@ -934,33 +936,43 @@ exit_success_p(VALUE exc)
     return Qfalse;
 }
 
+VALUE
+rb_make_name_error(VALUE name, VALUE mesg, VALUE klass)
+{
+    VALUE exc, argv[2];
+
+    argv[0] = mesg;
+    argv[1] = name;
+    exc = rb_class_new_instance(2, argv, rb_eNameError);
+    if (!NIL_P(klass)) rb_ivar_set(exc, id_receiver, klass);
+    return exc;
+}
+
 void
 rb_name_error(ID id, const char *fmt, ...)
 {
-    VALUE exc, argv[2];
+    VALUE exc, mesg;
     va_list args;
 
     va_start(args, fmt);
-    argv[0] = rb_vsprintf(fmt, args);
+    mesg = rb_vsprintf(fmt, args);
     va_end(args);
 
-    argv[1] = ID2SYM(id);
-    exc = rb_class_new_instance(2, argv, rb_eNameError);
+    exc = rb_make_name_error(ID2SYM(id), mesg, Qnil);
     rb_exc_raise(exc);
 }
 
 void
 rb_name_error_str(VALUE str, const char *fmt, ...)
 {
-    VALUE exc, argv[2];
+    VALUE exc, mesg;
     va_list args;
 
     va_start(args, fmt);
-    argv[0] = rb_vsprintf(fmt, args);
+    mesg = rb_vsprintf(fmt, args);
     va_end(args);
 
-    argv[1] = str;
-    exc = rb_class_new_instance(2, argv, rb_eNameError);
+    exc = rb_make_name_error(str, mesg, Qnil);
     rb_exc_raise(exc);
 }
 
@@ -981,6 +993,12 @@ name_err_initialize(int argc, VALUE *argv, VALUE self)
     name = (argc > 1) ? argv[--argc] : Qnil;
     rb_call_super(argc, argv);
     rb_iv_set(self, "name", name);
+    if (argc > 0) {
+	VALUE recv = rb_check_funcall(argv[0], id_receiver, 0, 0);
+	if (recv != Qundef && !NIL_P(recv)) {
+	    rb_ivar_set(self, id_receiver, recv);
+	}
+    }
     return self;
 }
 
@@ -995,6 +1013,19 @@ static VALUE
 name_err_name(VALUE self)
 {
     return rb_attr_get(self, rb_intern("name"));
+}
+
+/*
+ *  call-seq:
+ *    name_error.receiver    ->  string or nil
+ *
+ *  Return the receiver associated with this NameError exception.
+ */
+
+static VALUE
+name_err_receiver(VALUE self)
+{
+    return rb_attr_get(self, id_receiver);
 }
 
 /*
@@ -1141,6 +1172,15 @@ static VALUE
 name_err_mesg_load(VALUE klass, VALUE str)
 {
     return str;
+}
+
+/* :nodoc: */
+static VALUE
+name_err_mesg_receiver(VALUE obj)
+{
+    VALUE *ptr;
+    TypedData_Get_Struct(obj, VALUE, &name_err_mesg_data_type, ptr);
+    return ptr[1];
 }
 
 /*
@@ -1780,11 +1820,13 @@ Init_Exception(void)
     rb_eNameError     = rb_define_class("NameError", rb_eStandardError);
     rb_define_method(rb_eNameError, "initialize", name_err_initialize, -1);
     rb_define_method(rb_eNameError, "name", name_err_name, 0);
+    rb_define_method(rb_eNameError, "receiver", name_err_receiver, 0);
     rb_cNameErrorMesg = rb_define_class_under(rb_eNameError, "message", rb_cData);
     rb_define_singleton_method(rb_cNameErrorMesg, "!", rb_name_err_mesg_new, NAME_ERR_MESG_COUNT);
     rb_define_method(rb_cNameErrorMesg, "==", name_err_mesg_equal, 1);
     rb_define_method(rb_cNameErrorMesg, "to_str", name_err_mesg_to_str, 0);
     rb_define_method(rb_cNameErrorMesg, "_dump", name_err_mesg_dump, 1);
+    rb_define_method(rb_cNameErrorMesg, "receiver", name_err_mesg_receiver, 0);
     rb_define_singleton_method(rb_cNameErrorMesg, "_load", name_err_mesg_load, 1);
     rb_eNoMethodError = rb_define_class("NoMethodError", rb_eNameError);
     rb_define_method(rb_eNoMethodError, "initialize", nometh_err_initialize, -1);
@@ -1805,6 +1847,8 @@ Init_Exception(void)
     rb_mErrno = rb_define_module("Errno");
 
     rb_define_global_function("warn", rb_warn_m, -1);
+
+    id_receiver = rb_intern_const("receiver");
 }
 
 void

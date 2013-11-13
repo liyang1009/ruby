@@ -1448,17 +1448,20 @@ rb_obj_remove_instance_variable(VALUE obj, VALUE name)
     UNREACHABLE;
 }
 
+VALUE rb_make_name_error(VALUE name, VALUE mesg, VALUE klass);
 NORETURN(static void uninitialized_constant(VALUE, ID));
 static void
 uninitialized_constant(VALUE klass, ID id)
 {
-    if (klass && rb_class_real(klass) != rb_cObject)
-	rb_name_error(id, "uninitialized constant %"PRIsVALUE"::%"PRIsVALUE"",
-		      rb_class_name(klass),
-		      QUOTE_ID(id));
-    else {
-	rb_name_error(id, "uninitialized constant %"PRIsVALUE"", QUOTE_ID(id));
+    VALUE mesg;
+    if (klass && rb_class_real(klass) != rb_cObject) {
+	mesg = rb_sprintf("uninitialized constant %"PRIsVALUE"::%"PRIsVALUE"",
+			  rb_class_name(klass), QUOTE_ID(id));
     }
+    else {
+	mesg = rb_sprintf("uninitialized constant %"PRIsVALUE"", QUOTE_ID(id));
+    }
+    rb_exc_raise(rb_make_name_error(ID2SYM(id), mesg, klass));
 }
 
 static VALUE
