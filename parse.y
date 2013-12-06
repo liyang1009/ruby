@@ -7722,6 +7722,11 @@ parser_yylex(struct parser_params *parser)
 	    break;
 	  default:
 	    pushback(c);
+	    if (!is_identchar(lex_p, lex_pend, current_enc) &&
+		!is_operator(lex_p, lex_pend)) {
+		lex_state = EXPR_BEG;
+		return ':';
+	    }
 	    break;
 	}
 	lex_state = EXPR_FNAME;
