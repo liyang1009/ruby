@@ -6610,6 +6610,19 @@ wmap_size(VALUE self)
 #endif
 }
 
+static VALUE
+whash_initialize(VALUE self)
+{
+    extern const struct st_hash_type rb_hashtype_obj;
+    struct weakmap *w;
+
+    TypedData_Get_Struct(self, struct weakmap, &weakmap_type, w);
+    st_clear(w->obj2wmap);
+    st_clear(w->wmap2obj);
+    w->wmap2obj->type = &rb_hashtype_obj;
+    return self;
+}
+
 /*
   ------------------------------ GC profiler ------------------------------
 */
@@ -7430,6 +7443,7 @@ Init_GC(void)
 
     {
 	VALUE rb_cWeakMap = rb_define_class_under(rb_mObjSpace, "WeakMap", rb_cObject);
+	VALUE rb_cWeakHash = rb_define_class_under(rb_mObjSpace, "WeakHash", rb_cWeakMap);
 	rb_define_alloc_func(rb_cWeakMap, wmap_allocate);
 	rb_define_method(rb_cWeakMap, "[]=", wmap_aset, 2);
 	rb_define_method(rb_cWeakMap, "[]", wmap_aref, 1);
@@ -7447,6 +7461,7 @@ Init_GC(void)
 	rb_define_method(rb_cWeakMap, "length", wmap_size, 0);
 	rb_define_private_method(rb_cWeakMap, "finalize", wmap_finalize, 1);
 	rb_include_module(rb_cWeakMap, rb_mEnumerable);
+	rb_define_method(rb_cWeakHash, "initialize", whash_initialize, 0);
     }
 
 #if MALLOC_ALLOCATED_SIZE

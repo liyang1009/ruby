@@ -133,10 +133,11 @@ rb_any_hash(VALUE a)
     return (st_index_t)RSHIFT(hnum, 1);
 }
 
-static const struct st_hash_type objhash = {
+const struct st_hash_type rb_hashtype_obj = {
     rb_any_cmp,
     rb_any_hash,
 };
+#define objhash rb_hashtype_obj
 
 extern const struct st_hash_type st_hashtype_num;
 #define identhash st_hashtype_num
