@@ -1704,6 +1704,23 @@ get_prev_insn(INSN *iobj)
 }
 
 static int
+optimize_fstring(rb_iseq_t *iseq, INSN *iobj, INSN *niobj)
+{
+    enum ruby_vminsn_type nexti = niobj->insn_id;
+    rb_call_info_t *ci;
+    VALUE str;
+
+    if (nexti != BIN(send) && nexti != BIN(opt_send_simple)) return FALSE;
+    ci = (rb_call_info_t *)niobj->operands[0];
+    if (ci->orig_argc != 0 || ci->mid != idFreeze) return FALSE;
+    str = rb_fstring(iobj->operands[0]);
+    iseq_add_mark_object(iseq, str);
+    iobj->operands[0] = str;
+    iobj->insn_id = BIN(opt_str_freeze);
+    return TRUE;
+}
+
+static int
 iseq_peephole_optimize(rb_iseq_t *iseq, LINK_ELEMENT *list, const int do_tailcallopt)
 {
     INSN *iobj = (INSN *)list;
@@ -1816,6 +1833,26 @@ iseq_peephole_optimize(rb_iseq_t *iseq, LINK_ELEMENT *list, const int do_tailcal
 	    rb_call_info_t *ci = (rb_call_info_t *)piobj->operands[0];
 	    if (ci->blockiseq == 0) {
 		ci->flag |= VM_CALL_TAILCALL;
+	    }
+	}
+    }
+
+    if (iobj->insn_id == BIN(putstring)) {
+	INSN *niobj = (INSN *)get_next_insn(iobj);
+
+	if (0) {
+	}
+	/* optimization shortcut
+	 *   "literal".freeze -> opt_str_freeze("literal")
+	 */
+	else if (optimize_fstring(iseq, iobj, niobj)) {
+	    REMOVE_ELEM(&niobj->link);
+	}
+	else if (niobj->insn_id == BIN(jump)) {
+	    INSN *diobj = (INSN *)get_destination_insn(niobj);
+	    if (0) {
+	    }
+	    else if (optimize_fstring(iseq, iobj, diobj)) {
 	    }
 	}
     }
@@ -4238,20 +4275,6 @@ iseq_compile_each(rb_iseq_t *iseq, LINK_ANCHOR *ret, NODE * node, int poped)
 	break;
       }
       case NODE_CALL:
-	/* optimization shortcut
-	 *   "literal".freeze -> opt_str_freeze("literal")
-	 */
-	if (node->nd_recv && nd_type(node->nd_recv) == NODE_STR &&
-	    node->nd_mid == idFreeze && node->nd_args == NULL)
-	{
-	    VALUE str = rb_fstring(node->nd_recv->nd_lit);
-	    iseq_add_mark_object(iseq, str);
-	    ADD_INSN1(ret, line, opt_str_freeze, str);
-	    if (poped) {
-		ADD_INSN(ret, line, pop);
-	    }
-	    break;
-	}
 	/* optimization shortcut
 	 *   obj["literal"] -> opt_aref_with(obj, "literal")
 	 */
