@@ -1721,6 +1721,27 @@ optimize_fstring(rb_iseq_t *iseq, INSN *iobj, INSN *niobj)
 }
 
 static int
+optimize_aref_with(rb_iseq_t *iseq, INSN *iobj, INSN *niobj)
+{
+    enum ruby_vminsn_type nexti = niobj->insn_id;
+    rb_call_info_t *ci;
+    INSN *piobj, *aiobj;
+    VALUE str;
+
+    if (nexti != BIN(send) && nexti != BIN(opt_send_simple)) return FALSE;
+    ci = (rb_call_info_t *)niobj->operands[0];
+    if (ci->orig_argc != 1 || ci->mid != idAREF) return FALSE;
+    piobj = (INSN *)get_prev_insn(iobj);
+    if (piobj && piobj->insn_id == BIN(putself)) return FALSE;
+    str = rb_fstring(iobj->operands[0]);
+    iseq_add_mark_object(iseq, str);
+    aiobj = new_insn_body(iseq, iobj->line_no, BIN(opt_aref_with), 2,
+			  new_callinfo(iseq, idAREF, 1, 0, 0), str);
+    REPLACE_ELEM((LINK_ELEMENT *)iobj, (LINK_ELEMENT *)aiobj);
+    return TRUE;
+}
+
+static int
 iseq_peephole_optimize(rb_iseq_t *iseq, LINK_ELEMENT *list, const int do_tailcallopt)
 {
     INSN *iobj = (INSN *)list;
@@ -1843,6 +1864,12 @@ iseq_peephole_optimize(rb_iseq_t *iseq, LINK_ELEMENT *list, const int do_tailcal
 	if (0) {
 	}
 	/* optimization shortcut
+	 *   obj["literal"] -> opt_aref_with(obj, "literal")
+	 */
+	else if (optimize_aref_with(iseq, iobj, niobj)) {
+	    REMOVE_ELEM(&niobj->link);
+	}
+	/* optimization shortcut
 	 *   "literal".freeze -> opt_str_freeze("literal")
 	 */
 	else if (optimize_fstring(iseq, iobj, niobj)) {
@@ -1851,6 +1878,8 @@ iseq_peephole_optimize(rb_iseq_t *iseq, LINK_ELEMENT *list, const int do_tailcal
 	else if (niobj->insn_id == BIN(jump)) {
 	    INSN *diobj = (INSN *)get_destination_insn(niobj);
 	    if (0) {
+	    }
+	    else if (optimize_aref_with(iseq, iobj, diobj)) {
 	    }
 	    else if (optimize_fstring(iseq, iobj, diobj)) {
 	    }
@@ -4275,23 +4304,6 @@ iseq_compile_each(rb_iseq_t *iseq, LINK_ANCHOR *ret, NODE * node, int poped)
 	break;
       }
       case NODE_CALL:
-	/* optimization shortcut
-	 *   obj["literal"] -> opt_aref_with(obj, "literal")
-	 */
-	if (node->nd_mid == idAREF && !private_recv_p(node) && node->nd_args &&
-	    nd_type(node->nd_args) == NODE_ARRAY && node->nd_args->nd_alen == 1 &&
-	    nd_type(node->nd_args->nd_head) == NODE_STR)
-	{
-	    VALUE str = rb_fstring(node->nd_args->nd_head->nd_lit);
-	    node->nd_args->nd_head->nd_lit = str;
-	    COMPILE(ret, "recv", node->nd_recv);
-	    ADD_INSN2(ret, line, opt_aref_with,
-		      new_callinfo(iseq, idAREF, 1, 0, 0), str);
-	    if (poped) {
-		ADD_INSN(ret, line, pop);
-	    }
-	    break;
-	}
       case NODE_FCALL:
       case NODE_VCALL:{		/* VCALL: variable or call */
 	/*
