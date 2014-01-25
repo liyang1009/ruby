@@ -1741,6 +1741,20 @@ optimize_aref_with(rb_iseq_t *iseq, INSN *iobj, INSN *niobj)
     return TRUE;
 }
 
+static void
+skip_next_insn(rb_iseq_t *iseq, INSN *iobj, INSN *niobj)
+{
+    if ((LINK_ELEMENT *)niobj == iobj->link.next) {
+	REMOVE_ELEM(&niobj->link);
+    }
+    else {
+	LABEL *l = NEW_LABEL(niobj->line_no);
+	INSN *j = new_insn_body(iseq, iobj->line_no, BIN(jump), 1, (VALUE)l);
+	INSERT_ELEM_NEXT((LINK_ELEMENT *)niobj, (LINK_ELEMENT *)l);
+	INSERT_ELEM_NEXT((LINK_ELEMENT *)iobj, (LINK_ELEMENT *)j);
+    }
+}
+
 static int
 iseq_peephole_optimize(rb_iseq_t *iseq, LINK_ELEMENT *list, const int do_tailcallopt)
 {
@@ -1859,32 +1873,39 @@ iseq_peephole_optimize(rb_iseq_t *iseq, LINK_ELEMENT *list, const int do_tailcal
     }
 
     if (iobj->insn_id == BIN(putstring)) {
-	INSN *niobj = (INSN *)get_next_insn(iobj);
+	while (1) {
+	    INSN *niobj = (INSN *)get_next_insn(iobj);
 
-	if (0) {
-	}
-	/* optimization shortcut
-	 *   obj["literal"] -> opt_aref_with(obj, "literal")
-	 */
-	else if (optimize_aref_with(iseq, iobj, niobj)) {
-	    REMOVE_ELEM(&niobj->link);
-	}
-	/* optimization shortcut
-	 *   "literal".freeze -> opt_str_freeze("literal")
-	 */
-	else if (optimize_fstring(iseq, iobj, niobj)) {
-	    REMOVE_ELEM(&niobj->link);
-	}
-	else if (niobj->insn_id == BIN(jump)) {
-	    INSN *diobj = (INSN *)get_destination_insn(niobj);
 	    if (0) {
 	    }
-	    else if (optimize_aref_with(iseq, iobj, diobj)) {
+	    /* optimization shortcut
+	     *   "literal".freeze -> opt_str_freeze("literal")
+	     */
+	    else if (optimize_fstring(iseq, iobj, niobj)) {
+		skip_next_insn(iseq, iobj, niobj);
+		continue;
 	    }
-	    else if (optimize_fstring(iseq, iobj, diobj)) {
+	    /* optimization shortcut
+	     *   obj["literal"] -> opt_aref_with(obj, "literal")
+	     */
+	    else if (optimize_aref_with(iseq, iobj, niobj)) {
+		skip_next_insn(iseq, iobj, niobj);
 	    }
+	    else if (niobj->insn_id == BIN(jump)) {
+		INSN *diobj = (INSN *)get_destination_insn(niobj);
+		if (optimize_fstring(iseq, iobj, diobj) ||
+		    optimize_aref_with(iseq, iobj, diobj) ||
+		    0) {
+		    LABEL *l = NEW_LABEL(diobj->line_no);
+		    INSERT_ELEM_NEXT((LINK_ELEMENT *)diobj, (LINK_ELEMENT *)l);
+		    OPERAND_AT(niobj, 0) = (VALUE)l;
+		    continue;
+		}
+	    }
+	    break;
 	}
     }
+
     return COMPILE_OK;
 }
 
