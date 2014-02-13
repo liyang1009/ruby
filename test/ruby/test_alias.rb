@@ -132,4 +132,43 @@ class TestAlias < Test::Unit::TestCase
       GC.verify_internal_consistency
     }
   end
+
+  def test_cyclic_zsuper
+    bug9475 = '[ruby-core:60431] [Bug #9475]'
+
+    a = Module.new do
+      def foo
+        "foo from A"
+      end
+    end
+
+    b = Class.new do
+      include a
+
+      def foo
+        # "foo from B"
+        super
+      end
+    end
+
+    c = Class.new(b) do
+      alias_method :orig_foo, :foo
+
+      def foo
+        # "foo from C"
+        orig_foo
+      end
+    end
+
+    b.class_eval do
+      alias_method :orig_foo, :foo
+
+      def foo
+        # "foo from B (again)"
+        orig_foo
+      end
+    end
+
+    assert_equal("foo from A", c.new.foo, bug9475)
+  end
 end

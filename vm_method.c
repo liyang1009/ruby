@@ -576,7 +576,13 @@ rb_method_entry_get_without_cache(VALUE klass, ID id,
 				  VALUE *defined_class_ptr)
 {
     VALUE defined_class;
-    rb_method_entry_t *me = search_method(klass, id, &defined_class);
+    rb_method_entry_t *me;
+
+    while ((me = search_method(klass, id, &defined_class)) != 0 &&
+	   me->def && me->def->type == VM_METHOD_TYPE_ZSUPER) {
+	klass = me->klass;
+	id = me->def->original_id;
+    }
 
     if (me && RB_TYPE_P(me->klass, T_ICLASS))
 	defined_class = me->klass;
@@ -1286,6 +1292,18 @@ rb_alias(VALUE klass, ID name, ID def)
     }
 
     if (flag == NOEX_UNDEF) flag = orig_me->flag;
+    if (target_klass != defined_class) {
+	rb_method_entry_t *new_me = rb_method_entry_make(target_klass, name,
+							 VM_METHOD_TYPE_ZSUPER, 0, flag,
+							 defined_class);
+	rb_method_definition_t *mdef = ALLOC(rb_method_definition_t);
+	new_me->def = mdef;
+	mdef->type = VM_METHOD_TYPE_ZSUPER;
+	mdef->original_id = def;
+	mdef->alias_count = 1;
+	method_added(target_klass, name);
+	return;
+    }
     method_entry_set(target_klass, name, orig_me, flag, defined_class);
 }
 
