@@ -175,6 +175,59 @@ enum_count(int argc, VALUE *argv, VALUE obj)
     return INT2NUM(memo->u3.cnt);
 }
 
+static void
+group_count_up(VALUE result, VALUE key)
+{
+    VALUE count = rb_hash_lookup(result, key);
+    if (NIL_P(count)) {
+	count = INT2FIX(1);
+    }
+    else {
+	count = rb_int_succ(count);
+    }
+    rb_hash_aset(result, key, count);
+}
+
+static VALUE
+group_count_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, memop))
+{
+    NODE *memo = RNODE(memop);
+    group_count_up(memo->u1.value, i);
+    return Qnil;
+}
+
+static VALUE
+group_count_iter_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, memop))
+{
+    NODE *memo = RNODE(memop);
+    group_count_up(memo->u1.value, enum_yield(argc, argv));
+    return Qnil;
+}
+
+/*
+ *  call-seq:
+ *     enum.group_count                 -> hash
+ *     enum.group_count { |obj| block } -> hash
+ *
+ *  Returns a hash of yielded results to their numbers.
+ *
+ *     ary = [1, 2, 4, 2]
+ *     ary.group_count           #=> {1=>1, 2=>2, 4=>1}
+ *     ary.group_count {|x| x%2} #=> {1=>1, 0=>3}
+ *
+ */
+
+static VALUE
+enum_group_count(VALUE obj)
+{
+    VALUE result = rb_hash_new();
+    NODE *memo = NEW_MEMO(result, 0, 0);
+    rb_block_call(obj, id_each, 0, 0,
+		  (rb_block_given_p() ? group_count_iter_i : group_count_i),
+		  (VALUE)memo);
+    return result;
+}
+
 static VALUE
 find_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, memop))
 {
@@ -3049,6 +3102,7 @@ Init_Enumerable(void)
     rb_define_method(rb_mEnumerable, "sort_by", enum_sort_by, 0);
     rb_define_method(rb_mEnumerable, "grep", enum_grep, 1);
     rb_define_method(rb_mEnumerable, "count", enum_count, -1);
+    rb_define_method(rb_mEnumerable, "group_count", enum_group_count, 0);
     rb_define_method(rb_mEnumerable, "find", enum_find, -1);
     rb_define_method(rb_mEnumerable, "detect", enum_find, -1);
     rb_define_method(rb_mEnumerable, "find_index", enum_find_index, -1);
