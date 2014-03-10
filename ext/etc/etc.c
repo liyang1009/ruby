@@ -365,6 +365,46 @@ etc_getpwent(VALUE obj)
     return Qnil;
 }
 
+/* call-seq:
+ *	Etc::Passwd[user]	->  Passwd
+ *
+ * Returns the /etc/passwd information for the user with specified login
+ * name or user ID by +user+.
+ *
+ * The information is returned as a Passwd struct.
+ *
+ * See the <code>Etc.getpwnam</code> and <code>Etc.getpwuid</code> for
+ * more detail.
+ *
+ * === Example:
+ *
+ *	Etc::Passwd['root']
+ *	#=> #<struct Etc::Passwd name="root", passwd="x", uid=0, gid=0, gecos="root",dir="/root", shell="/bin/bash">
+ *	Etc::Passwd[0]
+ *	#=> #<struct Etc::Passwd name="root", passwd="x", uid=0, gid=0, gecos="root",dir="/root", shell="/bin/bash">
+ */
+static VALUE
+etc_pw_aref(VALUE obj, VALUE user)
+{
+#ifdef HAVE_GETPWENT
+    struct passwd *pwd;
+    VALUE name = rb_check_string_type(user);
+
+    if (!NIL_P(name)) {
+	user = name;
+	rb_check_safe_obj(user);
+	pwd = getpwnam(RSTRING_PTR(user));
+    }
+    else {
+	pwd = getpwuid(NUM2UIDT(user));
+    }
+    if (pwd == 0) rb_raise(rb_eArgError, "can't find user for %"PRIsVALUE, user);
+    return setup_passwd(pwd);
+#else
+    return Qnil;
+#endif
+}
+
 #ifdef HAVE_GETGRENT
 static VALUE
 setup_group(struct group *grp)
@@ -600,6 +640,46 @@ etc_getgrent(VALUE obj)
     }
 #endif
     return Qnil;
+}
+
+/* call-seq:
+ *	Etc::Group[group]  ->	Group
+ *
+ * Returns information about the group with specified login name or
+ * group ID by +group+, as found in /etc/group.
+ *
+ * The information is returned as a Group struct.
+ *
+ * See <code>Etc.getgrgid</code> and <code>Etc.getgrnam</code> for more detail.
+ *
+ * === Example:
+ *
+ *	Etc::Group['users']
+ *	#=> #<struct Etc::Group name="users", passwd="x", gid=100, mem=["meta", "root"]>
+ *	Etc::Group[100]
+ *	#=> #<struct Etc::Group name="users", passwd="x", gid=100, mem=["meta", "root"]>
+ *
+ */
+static VALUE
+etc_gr_aref(VALUE obj, VALUE group)
+{
+#ifdef HAVE_GETGRENT
+    struct group *grp;
+    VALUE name = rb_check_string_type(group);
+
+    if (!NIL_P(name)) {
+	group = name;
+	rb_check_safe_obj(group);
+	grp = getgrnam(RSTRING_PTR(group));
+    }
+    else {
+	grp = getgrgid(NUM2GIDT(group));
+    }
+    if (grp == 0) rb_raise(rb_eArgError, "can't find group for %"PRIsVALUE, group);
+    return setup_group(grp);
+#else
+    return Qnil;
+#endif
 }
 
 #define numberof(array) (sizeof(array) / sizeof(*(array)))
@@ -1023,6 +1103,7 @@ Init_etc(void)
     rb_define_const(rb_cStruct, "Passwd", sPasswd); /* deprecated name */
     rb_extend_object(sPasswd, rb_mEnumerable);
     rb_define_singleton_method(sPasswd, "each", etc_each_passwd, 0);
+    rb_define_singleton_method(sPasswd, "[]", etc_pw_aref, 1);
 
 #ifdef HAVE_GETGRENT
     sGroup = rb_struct_define_under(mEtc, "Group", "name",
@@ -1058,5 +1139,6 @@ Init_etc(void)
     rb_define_const(rb_cStruct, "Group", sGroup); /* deprecated name */
     rb_extend_object(sGroup, rb_mEnumerable);
     rb_define_singleton_method(sGroup, "each", etc_each_group, 0);
+    rb_define_singleton_method(sGroup, "[]", etc_gr_aref, 1);
 #endif
 }
