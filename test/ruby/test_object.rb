@@ -125,6 +125,12 @@ class TestObject < Test::Unit::TestCase
 
     assert_equal([:foo], o.methods(true) - a1)
     assert_equal([:foo], o.methods(false) - a2)
+
+    assert_raise(ArgumentError) {o.methods(true, regular: true)}
+    assert_raise(ArgumentError) {o.methods(false, regular: true)}
+    assert_raise(TypeError) {o.methods(regular: 1)}
+    assert_equal([:foo], o.methods(regular: true) - a1)
+    assert_equal([:foo], o.methods(regular: false) - a2)
   end
 
   def test_methods2

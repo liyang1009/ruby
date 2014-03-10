@@ -1296,8 +1296,27 @@ rb_class_public_instance_methods(int argc, const VALUE *argv, VALUE mod)
 VALUE
 rb_obj_methods(int argc, const VALUE *argv, VALUE obj)
 {
-    rb_check_arity(argc, 0, 1);
-    if (argc > 0 && !RTEST(argv[0])) {
+    VALUE recur, opt;
+    ID keywords[1];
+
+    argc = rb_scan_args(argc, argv, "01:", &recur, &opt);
+    if (argc == 0) {
+	recur = Qtrue;
+    }
+    if (!NIL_P(opt)) {
+	CONST_ID(keywords[0], "regular");
+	if (rb_get_kwargs(opt, keywords, 0, 1, &recur)) {
+	    if (argc) {
+		rb_raise(rb_eArgError, "optional and keyword arguments are given: regular");
+	    }
+	    if (recur != Qtrue && recur != Qfalse) {
+		rb_raise(rb_eTypeError, "wrong argument type %"PRIsVALUE" (expected true or false)",
+			 rb_obj_class(recur));
+	    }
+	}
+    }
+
+    if (!RTEST(recur)) {
 	return rb_obj_singleton_methods(argc, argv, obj);
     }
     return class_instance_method_list(argc, argv, CLASS_OF(obj), 1, ins_methods_i);
