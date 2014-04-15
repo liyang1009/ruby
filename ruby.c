@@ -339,6 +339,16 @@ translit_char_bin(char *p, int from, int to)
     }
 }
 
+static inline void
+translit_wchar(WCHAR *p, WCHAR from, WCHAR to)
+{
+    while (*p) {
+	if (*p == from)
+	    *p = to;
+	p++;
+    }
+}
+
 # define UTF8_PATH 1
 #endif
 
@@ -386,9 +396,21 @@ ruby_init_loadpath_safe(int safe_level)
     char *p;
 
 #if defined _WIN32 || defined __CYGWIN__
-    sopath = rb_str_new(0, MAXPATHLEN);
+    DWORD len, wlen = 52 + 1;
+    VALUE wpath = rb_str_tmp_new(wlen * sizeof(WCHAR) - 1);
+    WCHAR *ws = (WCHAR *)RSTRING_PTR(wpath);
+    while ((len = GetModuleFileNameW(libruby, ws, wlen)) == wlen) {
+	rb_str_modify_expand(wpath, (wlen - 1) * sizeof(WCHAR));
+	wlen += wlen - 1;
+	ws = (WCHAR *)RSTRING_PTR(wpath);
+    }
+    wlen = len;
+    translit_wchar(ws, L'\\', L'/');
+    len = WideCharToMultiByte(CP_UTF8, 0, ws, wlen, NULL, 0, NULL, NULL);
+    sopath = rb_enc_str_new(0, len, rb_utf8_encoding());
     libpath = RSTRING_PTR(sopath);
-    GetModuleFileName(libruby, libpath, MAXPATHLEN);
+    WideCharToMultiByte(CP_UTF8, 0, ws, wlen, libpath, len, NULL, NULL);
+    rb_str_resize(wpath, 0);
 #elif defined(__EMX__)
     _execname(libpath, sizeof(libpath) - 1);
 #elif defined(HAVE_DLADDR)
@@ -409,7 +431,7 @@ ruby_init_loadpath_safe(int safe_level)
 #if !VARIABLE_LIBPATH
     libpath[sizeof(libpath) - 1] = '\0';
 #endif
-#if defined DOSISH
+#if defined DOSISH && !UTF8_PATH
     translit_char(libpath, '\\', '/');
 #elif defined __CYGWIN__
     {
@@ -468,14 +490,14 @@ ruby_init_loadpath_safe(int safe_level)
     }
     baselen = p - libpath;
 #define PREFIX_PATH() rb_str_new(libpath, baselen)
+#define BASEPATH() rb_str_buf_cat(rb_str_buf_new(baselen+len), libpath, baselen)
 #else
     baselen = p - libpath;
     rb_str_resize(sopath, baselen);
     libpath = RSTRING_PTR(sopath);
 #define PREFIX_PATH() sopath
+#define BASEPATH() rb_str_buf_append(rb_str_buf_new(baselen+len), PREFIX_PATH())
 #endif
-
-#define BASEPATH() rb_str_buf_cat(rb_str_buf_new(baselen+len), libpath, baselen)
 
 #define RUBY_RELATIVE(path, len) rb_str_buf_cat(BASEPATH(), (path), (len))
 #else
@@ -1399,7 +1421,12 @@ process_options(int argc, char **argv, struct cmdline_options *opt)
 	VALUE load_path = GET_VM()->load_path;
 	for (i = 0; i < RARRAY_LEN(load_path); ++i) {
 	    VALUE path = RARRAY_AREF(load_path, i);
+#if UTF8_PATH
+	    const VALUE encoded_path = rb_str_conv_enc(path, rb_utf8_encoding(), lenc);
+	    path = (encoded_path == path) ? rb_str_dup(path) : encoded_path;
+#else
 	    path = rb_enc_associate(rb_str_dup(path), lenc);
+#endif
 	    RARRAY_ASET(load_path, i, path);
 	}
     }
