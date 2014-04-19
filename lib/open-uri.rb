@@ -207,6 +207,10 @@ module OpenURI
     while true
       redirect = catch(:open_uri_redirect) {
         buf = Buffer.new
+        if options.include? :string_max
+          options = options.dup
+          buf.string_max = options.delete(:string_max)
+        end
         uri.buffer_open(buf, find_proxy.call(uri), options)
         nil
       }
@@ -376,14 +380,16 @@ module OpenURI
     def initialize
       @io = StringIO.new
       @size = 0
+      @string_max = StringMax
     end
     attr_reader :size
+    attr_accessor :string_max
 
     StringMax = 10240
     def <<(str)
       @io << str
       @size += str.length
-      if StringIO === @io && StringMax < @size
+      if StringIO === @io && @string_max && @string_max < @size
         require 'tempfile'
         io = Tempfile.new('open-uri')
         io.binmode
