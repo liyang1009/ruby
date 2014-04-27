@@ -202,9 +202,10 @@ class IPAddr
 
   # Returns a string containing the IP address representation.
   def to_s
-    str = to_string
-    return str if ipv4?
+    return _to_string(@addr, true)
+  end
 
+  def self.shorten_ipv6(str)
     str.gsub!(/\b0{1,3}([\da-f]+)\b/i, '\1')
     loop do
       break if str.sub!(/\A0:0:0:0:0:0:0:0\z/, '::')
@@ -229,6 +230,10 @@ class IPAddr
   # canonical form.
   def to_string
     return _to_string(@addr)
+  end
+
+  def unmasked_addr
+    return _to_string(@unmasked_addr, true)
   end
 
   # Returns a network byte ordered string form of the IP address.
@@ -499,6 +504,7 @@ class IPAddr
     if family != Socket::AF_UNSPEC && @family != family
       raise AddressFamilyError, "address family mismatch"
     end
+    @unmasked_addr = @addr
     if prefixlen
       mask!(prefixlen)
     else
@@ -593,14 +599,16 @@ class IPAddr
     end
   end
 
-  def _to_string(addr)
+  def _to_string(addr, shorten_ipv6 = false)
     case @family
     when Socket::AF_INET
       return (0..3).map { |i|
         (addr >> (24 - 8 * i)) & 0xff
       }.join('.')
     when Socket::AF_INET6
-      return (("%.32x" % addr).gsub!(/.{4}(?!$)/, '\&:'))
+      str = (("%.32x" % addr).gsub!(/.{4}(?!$)/, '\&:'))
+      str = self.class.shorten_ipv6(str) if shorten_ipv6
+      return str
     else
       raise AddressFamilyError, "unsupported address family"
     end
@@ -817,6 +825,11 @@ class TC_IPAddr < Test::Unit::TestCase
   def test_to_s
     assert_equal("3ffe:0505:0002:0000:0000:0000:0000:0001", IPAddr.new("3ffe:505:2::1").to_string)
     assert_equal("3ffe:505:2::1", IPAddr.new("3ffe:505:2::1").to_s)
+  end
+
+  def test_unmasked_addr
+    feature = '[GH-599]'
+    assert_equal('192.168.1.100', IPAddr.new('192.168.1.100/24').unmasked_addr, feature)
   end
 end
 

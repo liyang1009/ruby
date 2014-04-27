@@ -27,6 +27,10 @@ with all sufficient information, see the ChangeLog file.
   * New methods
     * IO#statfs returns filesystem information as File::Statfs. (experimental)
 
+* IPAddr
+  * New methods
+    * IPAddr#unmasked_addr returns a string represents unmasked address.
+
 * Symbol
   * New methods
     * Symbol.find(str) returns whether given string is defined as symbol or not.
