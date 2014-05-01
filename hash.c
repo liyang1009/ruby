@@ -2402,6 +2402,28 @@ rb_hash_flatten(int argc, VALUE *argv, VALUE hash)
     return ary;
 }
 
+static int
+hash_comprised_i(VALUE key, VALUE value, VALUE arg)
+{
+    VALUE *args = (VALUE *)arg;
+    VALUE v = rb_hash_lookup2(args[0], key, Qundef);
+    if (v != Qundef && rb_equal(value, v)) return ST_CONTINUE;
+    args[1] = Qfalse;
+    return ST_STOP;
+}
+
+static VALUE
+rb_hash_comprised_p(VALUE hash, VALUE other)
+{
+    VALUE args[2];
+
+    other = to_hash(other);
+    args[0] = hash;
+    args[1] = Qtrue;
+    rb_hash_foreach(other, hash_comprised_i, (VALUE)args);
+    return args[1];
+}
+
 static VALUE rb_hash_compare_by_id_p(VALUE hash);
 
 /*
@@ -3626,6 +3648,27 @@ env_update(VALUE env, VALUE hash)
     return env;
 }
 
+static int
+env_comprised_i(VALUE key, VALUE value, VALUE arg)
+{
+    VALUE *args = (VALUE *)arg;
+    VALUE v = rb_f_getenv(Qnil, key);
+    if (!NIL_P(v) && rb_equal(value, v)) return ST_CONTINUE;
+    args[0] = Qfalse;
+    return ST_STOP;
+}
+
+static VALUE
+env_comprised_p(VALUE obj, VALUE other)
+{
+    VALUE args[1];
+
+    other = to_hash(other);
+    args[0] = Qtrue;
+    rb_hash_foreach(other, env_comprised_i, (VALUE)args);
+    return args[0];
+}
+
 /*
  *  A Hash is a dictionary-like collection of unique keys and their values.
  *  Also called associative arrays, they are similar to Arrays, but where an
@@ -3817,6 +3860,7 @@ Init_Hash(void)
     rb_define_method(rb_cHash,"has_value?", rb_hash_has_value, 1);
     rb_define_method(rb_cHash,"key?", rb_hash_has_key, 1);
     rb_define_method(rb_cHash,"value?", rb_hash_has_value, 1);
+    rb_define_method(rb_cHash,"comprised?", rb_hash_comprised_p, 1);
 
     rb_define_method(rb_cHash,"compare_by_identity", rb_hash_compare_by_id, 0);
     rb_define_method(rb_cHash,"compare_by_identity?", rb_hash_compare_by_id_p, 0);
@@ -3876,6 +3920,7 @@ Init_Hash(void)
     rb_define_singleton_method(envtbl,"to_h", env_to_hash, 0);
     rb_define_singleton_method(envtbl,"assoc", env_assoc, 1);
     rb_define_singleton_method(envtbl,"rassoc", env_rassoc, 1);
+    rb_define_singleton_method(envtbl,"comprised?", env_comprised_p, 1);
 
     /*
      * ENV is a Hash-like accessor for environment variables.
