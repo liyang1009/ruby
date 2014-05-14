@@ -64,6 +64,7 @@ def main
   @color = nil
   @tty = nil
   @quiet = false
+  @jobs = nil
   dir = nil
   quiet = false
   tests = nil
@@ -112,7 +113,8 @@ Usage: #{File.basename($0, '.*')} --ruby=PATH [--sets=NAME,NAME,...]
     -h, --help                      Print this message and quit.
 End
       exit true
-    when /\A-j/
+    when /\A-j(\d+)\z/, /\A--jobs=(\d+)\z/
+      @jobs = $1.to_i
       true
     else
       false
