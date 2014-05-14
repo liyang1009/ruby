@@ -91,16 +91,16 @@ class TestQueue < Test::Unit::TestCase
 
   def test_thr_kill
     bug5343 = '[ruby-core:39634]'
-    Dir.mktmpdir {|d|
-      timeout = 30
-      total_count = 250
-      begin
-        assert_normal_exit(<<-"_eom", bug5343, {:timeout => timeout, :chdir=>d})
-          require "thread"
-          #{total_count}.times do |i|
-            open("test_thr_kill_count", "w") {|f| f.puts i }
-            queue = Queue.new
-            r, w = IO.pipe
+    timeout = 30
+    total_count = 250
+    count = nil
+    counter = proc {|out_p| out_p.each_line {|line| count = line.chomp}}
+    assert_nothing_raised(Timeout::Error, proc {"only #{count}/#{total_count} done in #{timeout} seconds."}) do
+      assert_normal_exit(<<-"_eom", stdout_filter: counter, timeout: timeout)
+        require "thread"
+        #{total_count}.times do |i|
+          queue = Queue.new
+          IO.pipe do |r, w|
             th = Thread.start {
               queue.push(nil)
               r.read 1
@@ -109,12 +109,11 @@ class TestQueue < Test::Unit::TestCase
             th.kill
             th.join
           end
+          STDOUT.puts i+1
+          STDOUT.flush
+        end
         _eom
-      rescue Timeout::Error
-        count = File.read("#{d}/test_thr_kill_count").to_i
-        flunk "only #{count}/#{total_count} done in #{timeout} seconds."
-      end
-    }
+    end
   end
 
   def test_queue_push_return_value
