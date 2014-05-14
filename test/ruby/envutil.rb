@@ -59,8 +59,20 @@ module EnvUtil
     if block_given?
       return yield in_p, out_p, err_p, pid
     else
-      th_stdout = Thread.new { out_p.read } if capture_stdout
-      th_stderr = Thread.new { err_p.read } if capture_stderr && capture_stderr != :merge_to_stdout
+      if capture_stdout
+        th_stdout = Thread.new {
+          stdout_filter.respond_to?(:read) ? stdout_filter.read(out_p) :
+          stdout_filter.respond_to?(:call) ? stdout_filter.call(out_p.read) :
+          out_p.read
+        }
+      end
+      if capture_stderr && capture_stderr != :merge_to_stdout
+        th_stderr = Thread.new {
+          stderr_filter.respond_to?(:read) ? stderr_filter.read(err_p) :
+          stderr_filter.respond_to?(:call) ? stderr_filter.call(err_p.read) :
+          err_p.read
+        }
+      end
       in_p.write stdin_data.to_str unless stdin_data.empty?
       in_p.close
       if (!th_stdout || th_stdout.join(timeout)) && (!th_stderr || th_stderr.join(timeout))
