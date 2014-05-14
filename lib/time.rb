@@ -194,12 +194,17 @@ class Time
 
     LeapYearMonthDays = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31] # :nodoc:
     CommonYearMonthDays = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31] # :nodoc:
-    def month_days(y, m)
+    def month_days_of_year(y)
       if ((y % 4 == 0) && (y % 100 != 0)) || (y % 400 == 0)
-        LeapYearMonthDays[m-1]
+        LeapYearMonthDays
       else
-        CommonYearMonthDays[m-1]
+        CommonYearMonthDays
       end
+    end
+    private :month_days_of_year
+
+    def month_days(y, m)
+      month_days_of_year(y)[m-1]
     end
     private :month_days
 
@@ -432,7 +437,34 @@ class Time
       else
         year = d[:year]
         year = yield(year) if year && block_given?
-        t = make_time(date, year, d[:mon], d[:mday], d[:hour], d[:min], d[:sec], d[:sec_fraction], d[:zone], now)
+        mon = d[:mon]
+        mday = d[:mday]
+        unless mon and mday
+          case
+          when (w = d[:wnum0])  # %U
+            range = 0..53
+            mday = +1
+          when (w = d[:wnum1])  # %W
+            range = 0..53
+            mday = +2
+          when (w = d[:cweek])  # %V
+            range = 1..53
+            mday = -6
+          end
+          if mday
+            raise ArgumentError, "invalid date" unless range.cover?(w)
+            t = make_time(date, year, 1, 1, nil, nil, nil, nil, d[:zone], now)
+            mday += w * 7 - t.wday
+            if w = d[:wday] || d[:cwday]
+              mday += w
+            end
+            month_days_of_year(t.year).each_with_index do |n, m|
+              break mon = m+1 if mday <= n
+              mday -= n
+            end
+          end
+        end
+        t = make_time(date, year, mon, mday, d[:hour], d[:min], d[:sec], d[:sec_fraction], d[:zone], now)
       end
       t
     end
