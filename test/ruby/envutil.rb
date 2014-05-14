@@ -357,12 +357,13 @@ module Test
           file ||= loc.path
           line ||= loc.lineno
         end
+        token = "Assert_#{$$}_#{"%.8x"%Random.rand(0x1_0000_0000)}_#{Time.now.strftime("%s_%L")}:"
         line -= 5 # lines until src
         src = <<eom
 # -*- coding: #{src.encoding}; -*-
   require #{__dir__.dump}'/envutil';include Test::Unit::Assertions
   END {
-    puts [Marshal.dump($!)].pack('m'), "assertions=\#{self._assertions}"
+    puts "\n#{token}begin", [Marshal.dump($!)].pack('m'), "assertions=\#{self._assertions}", "#{token}end"
   }
 #{src}
   class Test::Unit::Runner
@@ -371,14 +372,18 @@ module Test
 eom
         args = args.dup
         args.insert((Hash === args.first ? 1 : 0), "--disable=gems", *$:.map {|l| "-I#{l}"})
+        res = nil
         stdout, stderr, status = EnvUtil.invoke_ruby(args, src, true, true, **opt)
         abort = status.coredump? || (status.signaled? && ABORT_SIGNALS.include?(status.termsig))
         assert(!abort, FailDesc[status, stderr])
-        self._assertions += stdout[/^assertions=(\d+)/, 1].to_i
-        begin
-          res = Marshal.load(stdout.unpack("m")[0])
-        rescue => marshal_error
-          ignore_stderr = nil
+        stdout.sub!(/^#{token}begin\n(.*)\nassertions=(\d+)\n#{token}end\n/m) do
+          self._assertions += $2.to_i
+          begin
+            res = Marshal.load($1.unpack("m")[0])
+          rescue => marshal_error
+            ignore_stderr = nil
+            break
+          end
         end
         if res
           if bt = res.backtrace
@@ -396,6 +401,7 @@ eom
         end
         assert_equal(0, status, "assert_separately failed: '#{stderr}'")
         raise marshal_error if marshal_error
+        stdout
       end
 
       def assert_warning(pat, msg = nil)
