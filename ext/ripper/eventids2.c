@@ -48,6 +48,7 @@ static ID ripper_id_regexp_end;
 static ID ripper_id_label;
 static ID ripper_id_tlambda;
 static ID ripper_id_tlambeg;
+static ID ripper_id_ttime;
 
 static ID ripper_id_ignored_nl;
 static ID ripper_id_comment;
@@ -105,6 +106,7 @@ ripper_init_eventids2(void)
     ripper_id_label = rb_intern_const("on_label");
     ripper_id_tlambda = rb_intern_const("on_tlambda");
     ripper_id_tlambeg = rb_intern_const("on_tlambeg");
+    ripper_id_ttime = rb_intern_const("on_ttime");
 
     ripper_id_ignored_nl = rb_intern_const("on_ignored_nl");
     ripper_id_comment = rb_intern_const("on_comment");
@@ -261,6 +263,7 @@ static const struct token_assoc {
     {tLABEL,		&ripper_id_label},
     {tLAMBDA,		&ripper_id_tlambda},
     {tLAMBEG,		&ripper_id_tlambeg},
+    {tTIME,		&ripper_id_ttime},
 
     /* ripper specific tokens */
     {tIGNORED_NL,       &ripper_id_ignored_nl},

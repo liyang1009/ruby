@@ -873,6 +873,11 @@ class TestRipper::ScannerEvents < Test::Unit::TestCase
                  scan('CHAR', "@ivar")
   end
 
+  def test_ttime
+    t = '2000_01_01T00_00_00'.freeze
+    assert_equal [t], scan('ttime', t)
+  end
+
   def test_label
   end
 
