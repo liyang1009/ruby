@@ -3829,11 +3829,12 @@ int_dotimes_size(VALUE num, VALUE args, VALUE eobj)
 
 /*
  *  call-seq:
- *     int.times {|i| block }  ->  self
- *     int.times               ->  an_enumerator
+ *     int.times([from: start]) {|i| block }  ->  self
+ *     int.times([from: start])               ->  an_enumerator
  *
- *  Iterates the given block +int+ times, passing in values from zero to
- *  <code>int - 1</code>.
+ *  Iterates the given block +int+ times, passing in values from
+ *  +start+ to <code>start + int - 1</code>.  If +start+ is not given,
+ *  it is defaulted to zero.
  *
  *  If no block is given, an Enumerator is returned instead.
  *
@@ -3841,23 +3842,39 @@ int_dotimes_size(VALUE num, VALUE args, VALUE eobj)
  *       print i, " "
  *     end
  *     #=> 0 1 2 3 4
+
+ *     5.times(from: 1) do |i|
+ *       print i, " "
+ *     end
+ *     #=> 1 2 3 4 5
  */
 
 static VALUE
-int_dotimes(VALUE num)
+int_dotimes(int argc, VALUE *argv, VALUE num)
 {
-    RETURN_SIZED_ENUMERATOR(num, 0, 0, int_dotimes_size);
+    VALUE keyword_hash, start = Qnil;
+    long beg = 0, end;
 
-    if (FIXNUM_P(num)) {
-	long i, end;
+    RETURN_SIZED_ENUMERATOR(num, argc, argv, int_dotimes_size);
 
-	end = FIX2LONG(num);
-	for (i=0; i<end; i++) {
+    rb_scan_args(argc, argv, ":", &keyword_hash);
+    if (!NIL_P(keyword_hash)) {
+	ID from;
+	CONST_ID(from, "from");
+	rb_get_kwargs(keyword_hash, &from, 0, 1, &start);
+    }
+    if (FIXNUM_P(num) &&
+	(end = FIX2LONG(num),
+	 NIL_P(start) ||
+	 (FIXNUM_P(start) && (end += beg = FIX2LONG(start), FIXABLE(end))))) {
+	long i;
+
+	for (i=beg; i<end; i++) {
 	    rb_yield(LONG2FIX(i));
 	}
     }
     else {
-	VALUE i = INT2FIX(0);
+	VALUE i = start;
 
 	for (;;) {
 	    if (!RTEST(rb_funcall(i, '<', 1, num))) break;
@@ -4041,7 +4058,7 @@ Init_Numeric(void)
     rb_define_method(rb_cInteger, "even?", int_even_p, 0);
     rb_define_method(rb_cInteger, "upto", int_upto, 1);
     rb_define_method(rb_cInteger, "downto", int_downto, 1);
-    rb_define_method(rb_cInteger, "times", int_dotimes, 0);
+    rb_define_method(rb_cInteger, "times", int_dotimes, -1);
     rb_define_method(rb_cInteger, "succ", int_succ, 0);
     rb_define_method(rb_cInteger, "next", int_succ, 0);
     rb_define_method(rb_cInteger, "pred", int_pred, 0);

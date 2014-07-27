@@ -182,6 +182,12 @@ class TestInteger < Test::Unit::TestCase
     (2**32).times do |i|
       break if i == 2
     end
+    result = []
+    3.times {|i| result << i}
+    assert_equal([0,1,2], result)
+    result = []
+    3.times(from: 2) {|i| result << i}
+    assert_equal([2,3,4], result)
   end
 
   def test_round

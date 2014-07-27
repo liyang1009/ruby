@@ -24,6 +24,7 @@ class TestEnumerator < Test::Unit::TestCase
 
   def test_iterators
     assert_equal [0, 1, 2], enum_test(3.times)
+    assert_equal [2, 3, 4], enum_test(3.times(from: 2))
     assert_equal [:x, :y, :z], enum_test([:x, :y, :z].each)
     assert_equal [[:x, 1], [:y, 2]], enum_test({:x=>1, :y=>2}.each)
   end
