@@ -8513,12 +8513,11 @@ do_io_advise(rb_io_t *fptr, VALUE advice, off_t offset, off_t len)
     if (rv) {
 	/* posix_fadvise(2) doesn't set errno. On success it returns 0; otherwise
 	   it returns the error code. */
-	VALUE message = rb_sprintf("%"PRIsVALUE" "
-				   "(%"PRI_OFF_T_PREFIX"d, "
-				   "%"PRI_OFF_T_PREFIX"d, "
-				   "%"PRIsVALUE")",
-				   fptr->pathv, offset, len, advice);
-	rb_syserr_fail_str(rv, message);
+	rb_syserr_failf(rv, "%"PRIsVALUE" "
+			    "(%"PRI_OFF_T_PREFIX"d, "
+			    "%"PRI_OFF_T_PREFIX"d, "
+			    "%"PRIsVALUE")",
+			    fptr->pathv, offset, len, advice);
     }
 
     return Qnil;

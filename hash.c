@@ -2785,7 +2785,7 @@ NORETURN(static void invalid_envname(const char *name));
 static void
 invalid_envname(const char *name)
 {
-    rb_syserr_fail_str(EINVAL, rb_sprintf("ruby_setenv(%s)", name));
+    rb_syserr_failf(EINVAL, "ruby_setenv(%s)", name);
 }
 
 static const char *
@@ -2837,14 +2837,14 @@ ruby_setenv(const char *name, const char *value)
 #undef unsetenv
     if (value) {
 	if (setenv(name, value, 1))
-	    rb_sys_fail_str(rb_sprintf("setenv(%s)", name));
+	    rb_sys_failf("setenv(%s)", name);
     }
     else {
 #ifdef VOID_UNSETENV
 	unsetenv(name);
 #else
 	if (unsetenv(name))
-	    rb_sys_fail_str(rb_sprintf("unsetenv(%s)", name));
+	    rb_sys_failf("unsetenv(%s)", name);
 #endif
     }
 #elif defined __sun
@@ -2861,7 +2861,7 @@ ruby_setenv(const char *name, const char *value)
 	mem_size = len + strlen(value) + 2;
 	mem_ptr = malloc(mem_size);
 	if (mem_ptr == NULL)
-	    rb_sys_fail_str(rb_sprintf("malloc("PRIuSIZE")", mem_size));
+	    rb_sys_failf("malloc("PRIuSIZE")", mem_size);
 	snprintf(mem_ptr, mem_size, "%s=%s", name, value);
     }
     for (env_ptr = GET_ENVIRON(environ); (str = *env_ptr) != 0; ++env_ptr) {
@@ -2874,7 +2874,7 @@ ruby_setenv(const char *name, const char *value)
     if (value) {
 	if (putenv(mem_ptr)) {
 	    free(mem_ptr);
-	    rb_sys_fail_str(rb_sprintf("putenv(%s)", name));
+	    rb_sys_failf("putenv(%s)", name);
 	}
     }
 #else  /* WIN32 */

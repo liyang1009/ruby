@@ -2023,6 +2023,18 @@ rb_syserr_fail_str(int e, VALUE mesg)
 }
 
 void
+rb_syserr_failf(int e, const char *fmt, ...)
+{
+    va_list args;
+    VALUE mesg;
+
+    va_start(args, fmt);
+    mesg = rb_vsprintf(fmt, args);
+    va_end(args);
+    rb_syserr_fail_str(e, mesg);
+}
+
+void
 rb_sys_fail(const char *mesg)
 {
     rb_exc_raise(make_errno_exc(mesg));
@@ -2032,6 +2044,19 @@ void
 rb_sys_fail_str(VALUE mesg)
 {
     rb_exc_raise(make_errno_exc_str(mesg));
+}
+
+void
+rb_sys_failf(const char *fmt, ...)
+{
+    int e = errno;
+    va_list args;
+    VALUE mesg;
+
+    va_start(args, fmt);
+    mesg = rb_vsprintf(fmt, args);
+    va_end(args);
+    rb_syserr_fail_str(e, mesg);
 }
 
 #ifdef RUBY_FUNCTION_NAME_STRING

@@ -613,6 +613,7 @@ VALUE rb_get_path_check_to_string(VALUE, int);
 VALUE rb_get_path_check_convert(VALUE, VALUE, int);
 void Init_File(void);
 
+/* error.c */
 #ifdef RUBY_FUNCTION_NAME_STRING
 # if defined __GNUC__ && __GNUC__ >= 4
 #   pragma GCC visibility push(default)
@@ -628,6 +629,8 @@ NORETURN(void rb_syserr_fail_path_in(const char *func_name, int err, VALUE path)
 # define rb_sys_fail_path(path) rb_sys_fail_str(path)
 # define rb_syserr_fail_path(err, path) rb_syserr_fail_str((err), (path))
 #endif
+NORETURN(PRINTF_ARGS(void rb_sys_failf(const char *format, ...), 1, 2));
+NORETURN(PRINTF_ARGS(void rb_syserr_failf(int e, const char *format, ...), 2, 3));
 
 /* gc.c */
 void Init_heap(void);
