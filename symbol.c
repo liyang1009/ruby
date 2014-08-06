@@ -149,7 +149,7 @@ rb_id_attrset(ID id)
         /* make new dynamic symbol */
 	str = rb_str_dup(RSYMBOL((VALUE)id)->fstr);
 	rb_str_cat(str, "=", 1);
-	id = SYM2ID(rb_str_dynamic_intern(str));
+	id = SYM2ID(rb_str2sym(str));
     }
     return id;
 }
@@ -736,7 +736,7 @@ rb_gc_free_dsymbol(VALUE sym)
  */
 
 VALUE
-rb_str_dynamic_intern(VALUE str)
+rb_str2sym(VALUE str)
 {
 #if USE_SYMBOL_GC
     rb_encoding *enc, *ascii;

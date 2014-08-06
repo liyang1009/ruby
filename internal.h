@@ -803,7 +803,6 @@ int rb_is_method_name(VALUE name);
 int rb_is_junk_name(VALUE name);
 ID rb_make_internal_id(void);
 void rb_gc_free_dsymbol(VALUE);
-VALUE rb_str_dynamic_intern(VALUE);
 ID rb_id_attrget(ID id);
 
 /* proc.c */
@@ -1044,6 +1043,9 @@ VALUE rb_gcd_normal(VALUE self, VALUE other);
 #if defined(HAVE_LIBGMP) && defined(HAVE_GMP_H)
 VALUE rb_gcd_gmp(VALUE x, VALUE y);
 #endif
+
+/* symbol.c */
+VALUE rb_str2sym(VALUE);
 
 /* util.c */
 extern const signed char ruby_digit36_to_number_table[];

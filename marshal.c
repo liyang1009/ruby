@@ -452,7 +452,7 @@ static void
 w_unique(VALUE s, struct dump_arg *arg)
 {
     must_not_be_anonymous("class", s);
-    w_symbol(rb_str_dynamic_intern(s), arg);
+    w_symbol(rb_str2sym(s), arg);
 }
 
 static void w_object(VALUE,struct dump_arg*,int);
@@ -1321,7 +1321,7 @@ r_symreal(struct load_arg *arg, int ivar)
 	}
     }
     if (idx > 0) rb_enc_associate_index(s, idx);
-    sym = rb_str_dynamic_intern(s);
+    sym = rb_str2sym(s);
     st_insert(arg->symbols, (st_data_t)n, (st_data_t)sym);
 
     return sym;
