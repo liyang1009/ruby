@@ -751,6 +751,33 @@ rb_str2sym(VALUE str)
 #endif
 }
 
+VALUE
+rb_cstr2sym(const char *name, long len, rb_encoding *enc)
+{
+#if USE_SYMBOL_GC
+    rb_encoding *ascii;
+    struct RString fake_str;
+    VALUE str = rb_setup_fake_str(&fake_str, name, len, enc);
+    VALUE sym = lookup_str_sym(str);
+
+    if (sym) {
+	return sym;
+    }
+
+    ascii = rb_usascii_encoding();
+    if (enc != ascii) {
+	if (sym_check_asciionly(str)) {
+	    rb_enc_associate(str, ascii);
+	    enc = ascii;
+	}
+    }
+
+    return dsymbol_alloc(rb_cSymbol, rb_fstring(str), enc);
+#else
+    return rb_intern3(name, len, enc);
+#endif
+}
+
 ID
 rb_sym2id(VALUE sym)
 {
