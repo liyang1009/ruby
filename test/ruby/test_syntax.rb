@@ -113,7 +113,9 @@ class TestSyntax < Test::Unit::TestCase
     h = {k3: 31}
     assert_raise(ArgumentError) {o.kw(**h)}
     h = {"k1"=>11, k2: 12}
-    assert_raise(TypeError) {o.kw(**h)}
+    assert_raise(ArgumentError) {o.kw(**h)}
+    assert_equal({"k1"=>11, :"k2"=>12, :"k3"=>31}, {k3: 31, **h})
+    assert_equal({"k1"=>11, :"k2"=>12}, {**h})
   end
 
   def test_keyword_self_reference

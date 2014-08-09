@@ -2372,17 +2372,9 @@ kwmerge_ii(st_data_t *key, st_data_t *value, st_data_t arg, int existing)
 static int
 kwmerge_i(VALUE key, VALUE value, VALUE hash)
 {
-    if (!SYMBOL_P(key)) Check_Type(key, T_SYMBOL);
     if (st_update(RHASH_TBL_RAW(hash), key, kwmerge_ii, (st_data_t)value) == 0) { /* !existing */
 	RB_OBJ_WRITTEN(hash, Qundef, value);
     }
-    return ST_CONTINUE;
-}
-
-static int
-kwcheck_i(VALUE key, VALUE value, VALUE hash)
-{
-    if (!SYMBOL_P(key)) Check_Type(key, T_SYMBOL);
     return ST_CONTINUE;
 }
 
@@ -2403,7 +2395,7 @@ core_hash_merge_kwd(int argc, VALUE *argv)
     kw = argv[argc-1];
     kw = rb_convert_type(kw, T_HASH, "Hash", "to_hash");
     if (argc < 2) hash = kw;
-    rb_hash_foreach(kw, argc < 2 ? kwcheck_i : kwmerge_i, hash);
+    else rb_hash_foreach(kw,  kwmerge_i, hash);
     return hash;
 }
 
