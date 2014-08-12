@@ -2402,7 +2402,7 @@ fole_s_connect(int argc, VALUE *argv, VALUE self)
     ole_initialize();
 
     rb_scan_args(argc, argv, "1*", &svr_name, &others);
-    SafeStringValue(svr_name);
+    StringValue(svr_name);
     if (rb_safe_level() > 0 && OBJ_TAINTED(svr_name)) {
         rb_raise(rb_eSecurityError, "Insecure Object Connection - %s",
 		 StringValuePtr(svr_name));
@@ -2885,13 +2885,13 @@ fole_initialize(int argc, VALUE *argv, VALUE self)
     rb_call_super(0, 0);
     rb_scan_args(argc, argv, "11*", &svr_name, &host, &others);
 
-    SafeStringValue(svr_name);
+    StringValue(svr_name);
     if (rb_safe_level() > 0 && OBJ_TAINTED(svr_name)) {
         rb_raise(rb_eSecurityError, "Insecure Object Creation - %s",
                  StringValuePtr(svr_name));
     }
     if (!NIL_P(host)) {
-	SafeStringValue(host);
+	StringValue(host);
         if (rb_safe_level() > 0 && OBJ_TAINTED(host)) {
             rb_raise(rb_eSecurityError, "Insecure Object Creation - %s",
                      StringValuePtr(svr_name));
@@ -5450,12 +5450,11 @@ ev_advise(int argc, VALUE *argv, VALUE self)
     }
 
     if(!RB_TYPE_P(itf, T_NIL)) {
+        pitf = StringValuePtr(itf);
         if (rb_safe_level() > 0 && OBJ_TAINTED(itf)) {
             rb_raise(rb_eSecurityError, "Insecure Event Creation - %s",
                      StringValuePtr(itf));
         }
-        SafeStringValue(itf);
-        pitf = StringValuePtr(itf);
         hr = find_iid(ole, pitf, &iid, &pTypeInfo);
     }
     else {
