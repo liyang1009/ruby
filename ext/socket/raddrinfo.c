@@ -483,7 +483,7 @@ rsock_getaddrinfo(VALUE host, VALUE port, struct addrinfo *hints, int socktype_h
         if (hostp && hostp[strlen(hostp)-1] == '\n') {
             rb_raise(rb_eSocket, "newline at the end of hostname");
         }
-        rsock_raise_socket_error("getaddrinfo", error);
+        rsock_raise_socket_error_addr("getaddrinfo", error, hostp, portp);
     }
 
     return res;

@@ -39,6 +39,21 @@ rsock_raise_socket_error(const char *reason, int error)
     rb_raise(rb_eSocket, "%s: %s", reason, gai_strerror(error));
 }
 
+void
+rsock_raise_socket_error_addr(const char *reason, int error, const char *host, const char *port)
+{
+    VALUE msg;
+#ifdef EAI_SYSTEM
+    if (error == EAI_SYSTEM) rb_sys_fail(reason);
+#endif
+    msg = rb_sprintf("%s: %s", reason, gai_strerror(error));
+    if (host) {
+	rb_str_catf(msg, " - %s", host);
+	if (port) rb_str_catf(msg, ":%s", port);
+    }
+    rb_exc_raise(rb_exc_new_str(rb_eSocket, msg));
+}
+
 VALUE
 rsock_init_sock(VALUE sock, int fd)
 {

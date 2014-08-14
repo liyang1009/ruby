@@ -189,6 +189,13 @@ class TestNetHTTP < Test::Unit::TestCase
     end
   end
 
+  def test_failure_message_includes_failed_domain_and_port
+    uri = URI.parse("http://doesnotexist.bogus")
+    assert_raise_with_message(SocketError, /doesnotexist\.bogus:80/) do
+      Net::HTTP.get(uri)
+    end
+  end
+
 end
 
 module TestNetHTTP_version_1_1_methods
