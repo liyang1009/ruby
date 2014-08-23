@@ -17,7 +17,19 @@
 #endif
 #include "internal.h"
 #include "eval_intern.h"
+#ifdef _WIN32
+#define DLN_FIND_EXTRA_ARG_DECL ,UINT cp
+#define dln_find_exe_r rb_w32_udln_find_exe_r
+#define dln_find_file_r rb_w32_udln_find_file_r
+#endif
 #include "dln.h"
+#ifdef _WIN32
+#undef DLN_FIND_EXTRA_ARG_DECL
+#undef dln_find_exe_r
+#undef dln_find_file_r
+#define dln_find_exe_r(fname, path, buf, size) rb_w32_udln_find_exe_r(fname, path, buf, size, CP_UTF8)
+#define dln_find_file_r(fname, path, buf, size) rb_w32_udln_find_file_r(fname, path, buf, size, CP_UTF8)
+#endif
 #include <stdio.h>
 #include <sys/types.h>
 #include <ctype.h>
@@ -1436,6 +1448,7 @@ process_options(int argc, char **argv, struct cmdline_options *opt)
     }
     ruby_init_prelude();
 #if UTF8_PATH
+    rb_progname = rb_str_conv_enc(rb_progname, rb_utf8_encoding(), lenc);
     opt->script_name = str_conv_enc(opt->script_name, rb_utf8_encoding(), lenc);
     opt->script = RSTRING_PTR(opt->script_name);
 #endif
