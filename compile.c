@@ -1725,14 +1725,12 @@ optimize_aref_with(rb_iseq_t *iseq, INSN *iobj, INSN *niobj)
 {
     enum ruby_vminsn_type nexti = niobj->insn_id;
     rb_call_info_t *ci;
-    INSN *piobj, *aiobj;
+    INSN *aiobj;
     VALUE str;
 
     if (nexti != BIN(send) && nexti != BIN(opt_send_simple)) return FALSE;
     ci = (rb_call_info_t *)niobj->operands[0];
     if (ci->orig_argc != 1 || ci->mid != idAREF) return FALSE;
-    piobj = (INSN *)get_prev_insn(iobj);
-    if (piobj && piobj->insn_id == BIN(putself)) return FALSE;
     str = rb_fstring(iobj->operands[0]);
     iseq_add_mark_object(iseq, str);
     aiobj = new_insn_body(iseq, iobj->line_no, BIN(opt_aref_with), 2,
