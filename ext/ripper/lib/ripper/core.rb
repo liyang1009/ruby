@@ -34,9 +34,17 @@ class Ripper
   #
 
   PARSER_EVENT_TABLE.each do |id, arity|
+    args = ('a'..'z').take(arity).join(', ')
+    ret = if id == :compile_error
+            "compile_error(#{args})"
+          elsif arity.zero?
+            'nil'
+          else
+            'a'
+          end
     module_eval(<<-End, __FILE__, __LINE__ + 1)
-      def on_#{id}(#{ ('a'..'z').to_a[0, arity].join(', ') })
-        #{arity == 0 ? 'nil' : 'a'}
+      def on_#{id}(#{args})
+        #{ret}
       end
     End
   end

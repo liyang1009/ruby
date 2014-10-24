@@ -484,6 +484,33 @@ class TestRipper::ParserEvents < Test::Unit::TestCase
     assert_equal true, thru_command_call
   end
 
+  def test_compile_error
+    thru_compile_error = nil
+    parse('"', :on_compile_error) {|n, m| thru_compile_error = m}
+    assert_equal "unterminated string meets end of file", thru_compile_error
+    thru_compile_error = nil
+    parse('/', :on_compile_error) {|n, m| thru_compile_error = m}
+    assert_equal "unterminated regexp meets end of file", thru_compile_error
+
+    thru_compile_error = nil
+    parse('@1', :on_compile_error) {|n, m| thru_compile_error = m}
+    assert_equal "`@1' is not allowed as an instance variable name", thru_compile_error
+    thru_compile_error = nil
+    parse('@%', :on_compile_error) {|n, m| thru_compile_error = m}
+    assert_equal "`@%' is not allowed as an instance variable name", thru_compile_error
+
+    thru_compile_error = nil
+    parse('@@1', :on_compile_error) {|n, m| thru_compile_error = m}
+    assert_equal "`@@1' is not allowed as a class variable name", thru_compile_error
+    thru_compile_error = nil
+    parse('@@%', :on_compile_error) {|n, m| thru_compile_error = m}
+    assert_equal "`@@%' is not allowed as a class variable name", thru_compile_error
+
+    thru_compile_error = nil
+    parse('$%', :on_compile_error) {|n, m| thru_compile_error = m}
+    assert_equal "`$%' is not allowed as a global variable name", thru_compile_error
+  end
+
   def test_const_ref
     thru_const_ref = false
     parse('class A;end', :on_const_ref) {thru_const_ref = true}

@@ -210,6 +210,7 @@ class DummyParser < Ripper
 
   (Ripper::PARSER_EVENTS.map(&:to_s) - instance_methods(false).map {|n|n.to_s.sub(/^on_/, '')}).each do |event|
     define_method(:"on_#{event}") do |*args|
+      super(*args)
       Node.new(event, *args)
     end
   end

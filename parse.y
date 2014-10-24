@@ -10730,7 +10730,8 @@ ripper_compile_error(struct parser_params *parser, const char *fmt, ...)
     va_start(args, fmt);
     str = rb_vsprintf(fmt, args);
     va_end(args);
-    rb_funcall(parser->value, rb_intern("compile_error"), 1, str);
+    #undef compile_error
+    dispatch1(compile_error, str);
 }
 
 static void
