@@ -219,6 +219,7 @@ warn_print(const char *fmt, va_list args)
     rb_write_error_str(str);
 }
 
+#undef rb_warn
 void
 rb_warn(const char *fmt, ...)
 {
@@ -232,6 +233,7 @@ rb_warn(const char *fmt, ...)
 }
 
 /* rb_warning() reports only in verbose mode */
+#undef rb_warning
 void
 rb_warning(const char *fmt, ...)
 {

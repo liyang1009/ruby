@@ -1518,6 +1518,11 @@ PRINTF_ARGS(void rb_sys_warning(const char*, ...), 1, 2);
 PRINTF_ARGS(void rb_warn(const char*, ...), 1, 2);
 PRINTF_ARGS(void rb_compile_warn(const char *, int, const char*, ...), 3, 4);
 
+#ifdef HAVE_VA_ARGS_MACRO
+#define rb_warning(fmt, ...) (RTEST(ruby_verbose) ? rb_warning(fmt, ## __VA_ARGS__) : (void)0)
+#define rb_warn(fmt, ...) (!NIL_P(ruby_verbose) ? rb_warn(fmt, ## __VA_ARGS__) : (void)0)
+#endif
+
 /* for rb_readwrite_sys_fail first argument */
 #define RB_IO_WAIT_READABLE 0
 #define RB_IO_WAIT_WRITABLE 1

@@ -1418,12 +1418,19 @@ void rb_iter_break_value(VALUE value) ::
 
 void rb_warn(const char *fmt, ...) ::
 
-  Prints a warning message according to a printf-like format.
+  Prints a warning message according to a printf-like format, if
+  $VERBOSE is non-nil.
+
+  NOTE: Do not use expressions with side-effects as the arguments.
+  They may or may not be evaluated when the message is not printed.
 
 void rb_warning(const char *fmt, ...) ::
 
   Prints a warning message according to a printf-like format, if
   $VERBOSE is true.
+
+  NOTE: Do not use expressions with side-effects as the arguments.
+  They may or may not be evaluated when the message is not printed.
 
 void rb_raise(rb_eRuntimeError, const char *fmt, ...) ::
 
