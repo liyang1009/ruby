@@ -252,11 +252,14 @@ class TestQueue < Test::Unit::TestCase
   end
 
   def test_dup
-    bug9440 = '[ruby-core:59961] [Bug #9440]'
+    bug10485 = '[ruby-core:66128] [Bug #10485]'
     q = Queue.new
-    assert_raise(NoMethodError, bug9440) do
-      q.dup
-    end
+    q.push(42)
+    q2 = q.dup
+    assert_not_empty(q)
+    assert_equal(42, q.pop)
+    assert_not_empty(q2, bug10485)
+    assert_equal(42, q2.pop, bug10485)
   end
 
   (DumpableQueue = Queue.dup).class_eval {remove_method :marshal_dump}

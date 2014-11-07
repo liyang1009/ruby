@@ -216,6 +216,27 @@ rb_queue_initialize(VALUE self)
     return self;
 }
 
+static void
+queue_copy(VALUE self, VALUE orig, int num)
+{
+    int i;
+    for (i = 0; i <= num; ++i) {
+	VALUE v = RSTRUCT_GET(orig, i);
+	if (RB_TYPE_P(v, T_ARRAY)) {
+	    v = rb_ary_dup(v);
+	}
+	RSTRUCT_SET(self, i, v);
+    }
+}
+
+/* :nodoc: */
+static VALUE
+rb_queue_init_copy(VALUE self, VALUE orig)
+{
+    queue_copy(self, orig, QUEUE_WAITERS);
+    return self;
+}
+
 static VALUE
 queue_do_push(VALUE self, VALUE obj)
 {
@@ -409,6 +430,14 @@ rb_szqueue_initialize(VALUE self, VALUE vmax)
     RSTRUCT_SET(self, SZQUEUE_WAITERS, ary_buf_new());
     RSTRUCT_SET(self, SZQUEUE_MAX, vmax);
 
+    return self;
+}
+
+/* :nodoc: */
+static VALUE
+rb_szqueue_init_copy(VALUE self, VALUE orig)
+{
+    queue_copy(self, orig, SZQUEUE_MAX);
     return self;
 }
 
@@ -612,7 +641,7 @@ Init_thread(void)
     rb_define_method(rb_cConditionVariable, "broadcast", rb_condvar_broadcast, 0);
 
     rb_define_method(rb_cQueue, "initialize", rb_queue_initialize, 0);
-    rb_undef_method(rb_cQueue, "initialize_copy");
+    rb_define_method(rb_cQueue, "initialize_copy", rb_queue_init_copy, 1);
     rb_define_method(rb_cQueue, "marshal_dump", undumpable, 0);
     rb_define_method(rb_cQueue, "push", rb_queue_push, 1);
     rb_define_method(rb_cQueue, "pop", rb_queue_pop, -1);
@@ -633,6 +662,7 @@ Init_thread(void)
     rb_define_alias(rb_cQueue, "size", "length");
 
     rb_define_method(rb_cSizedQueue, "initialize", rb_szqueue_initialize, 1);
+    rb_define_method(rb_cSizedQueue, "initialize_copy", rb_szqueue_init_copy, 1);
     rb_define_method(rb_cSizedQueue, "max", rb_szqueue_max_get, 0);
     rb_define_method(rb_cSizedQueue, "max=", rb_szqueue_max_set, 1);
     rb_define_method(rb_cSizedQueue, "push", rb_szqueue_push, -1);
