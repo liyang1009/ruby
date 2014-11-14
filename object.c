@@ -478,13 +478,10 @@ rb_inspect(VALUE obj)
 {
     VALUE str = rb_obj_as_string(rb_funcall(obj, id_inspect, 0, 0));
     rb_encoding *ext = rb_default_external_encoding();
-    if (!rb_enc_asciicompat(ext)) {
+    if (!rb_enc_asciicompat(ext) || rb_enc_get(str) != ext) {
 	if (!rb_enc_str_asciionly_p(str))
-	    rb_raise(rb_eEncCompatError, "inspected result must be ASCII only if default external encoding is ASCII incompatible");
-	return str;
+	    str = rb_str_conv_enc(str, 0, ext);
     }
-    if (rb_enc_get(str) != ext && !rb_enc_str_asciionly_p(str))
-	rb_raise(rb_eEncCompatError, "inspected result must be ASCII only or use the default external encoding");
     return str;
 }
 

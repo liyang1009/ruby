@@ -270,7 +270,7 @@ class TestM17N < Test::Unit::TestCase
         o = Object.new
         [Encoding::UTF_16BE, Encoding::UTF_16LE, Encoding::UTF_32BE, Encoding::UTF_32LE].each do |e|
           o.instance_eval "undef inspect;def inspect;'abc'.encode('#{e}');end"
-          assert_raise(Encoding::CompatibilityError) { [o].inspect }
+          assert_nothing_raised(Encoding::CompatibilityError) { [o].inspect }
         end
       ensure
         Encoding.default_internal = orig_int
@@ -294,13 +294,13 @@ class TestM17N < Test::Unit::TestCase
     def o.inspect
       "abc".encode(Encoding.default_external)
     end
-    assert_raise(Encoding::CompatibilityError) { [o].inspect }
+    assert_nothing_raised(Encoding::CompatibilityError) { [o].inspect }
 
     Encoding.default_external = Encoding::US_ASCII
     def o.inspect
       "\u3042"
     end
-    assert_raise(Encoding::CompatibilityError) { [o].inspect }
+    assert_nothing_raised(Encoding::CompatibilityError) { [o].inspect }
   ensure
     Encoding.default_internal = orig_int
     Encoding.default_external = orig_ext
