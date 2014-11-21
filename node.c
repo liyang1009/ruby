@@ -52,9 +52,10 @@
 #define F_NODE(name, ann) \
     COMPOUND_FIELD(#name, #name " (" ann ")", dump_node(buf, indent, comment, node->name))
 
-#define ANN(ann) \
+#define ANN(ann) ANN_EXPR(A(ann))
+#define ANN_EXPR(expr) \
     if (comment) { \
-	A_INDENT; A("| # "); A(ann); A("\n"); \
+	A_INDENT; A("| # "); expr; A("\n"); \
     }
 
 #define LAST_NODE (next_indent = "    ")
@@ -229,6 +230,16 @@ dump_node(VALUE buf, VALUE indent, int comment, NODE *node)
 	F_NODE(nd_body, "rescue clause");
 	LAST_NODE;
 	F_NODE(nd_head, "next rescue clause");
+	break;
+
+      case NODE_RESCOND:
+	ANN("conditional rescue");
+	ANN_EXPR(A("format: (rescue) [nd_body] (");
+		 A(node->nd_state ? "if" : "unless");
+		 A(") [nd_cond]"));
+	F_NODE(nd_cond, "rescue condition");
+	LAST_NODE;
+	F_NODE(nd_body, "rescue clause");
 	break;
 
       case NODE_ENSURE:
@@ -993,6 +1004,7 @@ rb_gc_mark_node(NODE *obj)
       case NODE_ALIAS:
       case NODE_VALIAS:
       case NODE_ARGSCAT:
+      case NODE_RESCOND:
 	rb_gc_mark(RNODE(obj)->u1.value);
 	/* fall through */
       case NODE_GASGN:	/* 2 */

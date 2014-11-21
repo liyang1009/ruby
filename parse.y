@@ -800,7 +800,7 @@ static void token_info_pop(struct parser_params*, const char *token);
 %type <node> top_compstmt top_stmts top_stmt
 %type <node> bodystmt compstmt stmts stmt_or_begin stmt expr arg primary command command_call method_call
 %type <node> expr_value arg_value primary_value fcall
-%type <node> if_tail opt_else case_body cases opt_rescue exc_list exc_var opt_ensure
+%type <node> if_tail opt_else case_body cases opt_rescue exc_cond exc_list exc_var opt_ensure
 %type <node> args call_args opt_call_args
 %type <node> paren_args opt_paren_args args_tail opt_args_tail block_args_tail opt_block_args_tail
 %type <node> command_args aref_args opt_block_arg block_arg var_ref var_lhs
@@ -3797,23 +3797,49 @@ cases		: opt_else
 		| case_body
 		;
 
-opt_rescue	: keyword_rescue exc_list exc_var then
+opt_rescue	: keyword_rescue exc_list exc_var exc_cond then
 		  compstmt
 		  opt_rescue
 		    {
 		    /*%%%*/
+			NODE **var = &$6;
+			if ($4) {
+			    var = &$4->nd_cond;
+			    $4->nd_body = $6;
+			    $6 = $4;
+			}
 			if ($3) {
 			    $3 = node_assign($3, NEW_ERRINFO());
-			    $5 = block_append($3, $5);
+			    *var = block_append($3, *var);
 			}
-			$$ = NEW_RESBODY($2, $5, $6);
-			fixpos($$, $2?$2:$5);
+			$$ = NEW_RESBODY($2, $6, $7);
+			fixpos($$, $2?$2:$6);
 		    /*%
-			$$ = dispatch4(rescue,
+			$$ = dispatch5(rescue,
 				       escape_Qundef($2),
 				       escape_Qundef($3),
-				       escape_Qundef($5),
-				       escape_Qundef($6));
+				       escape_Qundef($4),
+				       escape_Qundef($6),
+				       escape_Qundef($7));
+		    %*/
+		    }
+		| none
+		;
+
+exc_cond	: modifier_if expr_value
+		    {
+		    /*%%%*/
+			$$ = NEW_RESCOND(cond($2), 1);
+		    /*%
+			$$ = dispatch2(if_mod, $2, Qnil);
+		    %*/
+		    }
+		| modifier_unless expr_value
+		    {
+		    /*%%%*/
+			$$ = NEW_RESCOND(cond($2), 0);
+		    /*%
+			$$ = dispatch2(unless_mod, $2, Qnil);
 		    %*/
 		    }
 		| none

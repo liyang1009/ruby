@@ -839,7 +839,7 @@ class TestRipper::ParserEvents < Test::Unit::TestCase
     parsed = parse('begin; 1; rescue => e; 2; end', :on_rescue) {thru_rescue = true}
     assert_equal true, thru_rescue
     assert_match(/1.*rescue/, parsed)
-    assert_match(/rescue\(,var_field\(e\),\[2\]\)/, parsed)
+    assert_match(/rescue\(,var_field\(e\),,\[2\]\)/, parsed)
   end
 
   def test_rescue_class
@@ -847,7 +847,23 @@ class TestRipper::ParserEvents < Test::Unit::TestCase
     parsed = parse('begin; 1; rescue RuntimeError => e; 2; end', :on_rescue) {thru_rescue = true}
     assert_equal true, thru_rescue
     assert_match(/1.*rescue/, parsed)
-    assert_match(/rescue\(\[ref\(RuntimeError\)\],var_field\(e\),\[2\]\)/, parsed)
+    assert_match(/rescue\(\[ref\(RuntimeError\)\],var_field\(e\),,\[2\]\)/, parsed)
+  end
+
+  def test_rescue_cond
+    thru_rescue = false
+    parsed = parse('begin; 1; rescue => e if e.cause; 2; end', :on_rescue) {thru_rescue = true}
+    assert_equal true, thru_rescue
+    assert_match(/1.*rescue/, parsed)
+    assert_match(/rescue\(,var_field\(e\),if_mod\(call\(ref\(e\),\.,cause\)\),\[2\]\)/, parsed)
+  end
+
+  def test_rescue_class_cond
+    thru_rescue = false
+    parsed = parse('begin; 1; rescue RuntimeError => e if e.cause; 2; end', :on_rescue) {thru_rescue = true}
+    assert_equal true, thru_rescue
+    assert_match(/1.*rescue/, parsed)
+    assert_match(/rescue\(\[ref\(RuntimeError\)\],var_field\(e\),if_mod\(call\(ref\(e\),\.,cause\)\),\[2\]\)/, parsed)
   end
 
   def test_rescue_mod

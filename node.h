@@ -54,6 +54,8 @@ enum node_type {
 #define NODE_RESCUE      NODE_RESCUE
     NODE_RESBODY,
 #define NODE_RESBODY     NODE_RESBODY
+    NODE_RESCOND,
+#define NODE_RESCOND     NODE_RESCOND
     NODE_ENSURE,
 #define NODE_ENSURE      NODE_ENSURE
     NODE_AND,
@@ -385,6 +387,7 @@ typedef struct RNode {
 #define NEW_BEGIN(b) NEW_NODE(NODE_BEGIN,0,b,0)
 #define NEW_RESCUE(b,res,e) NEW_NODE(NODE_RESCUE,b,res,e)
 #define NEW_RESBODY(a,ex,n) NEW_NODE(NODE_RESBODY,n,ex,a)
+#define NEW_RESCOND(c,b) NEW_NODE(NODE_RESCOND,c,0,b)
 #define NEW_ENSURE(b,en) NEW_NODE(NODE_ENSURE,b,0,en)
 #define NEW_RETURN(s) NEW_NODE(NODE_RETURN,s,0,0)
 #define NEW_YIELD(a) NEW_NODE(NODE_YIELD,a,0,0)

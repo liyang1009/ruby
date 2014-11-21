@@ -3836,7 +3836,7 @@ iseq_compile_each(rb_iseq_t *iseq, LINK_ANCHOR *ret, NODE * node, int poped)
       }
       case NODE_RESBODY:{
 	NODE *resq = node;
-	NODE *narg;
+	NODE *narg, *body;
 	LABEL *label_miss, *label_hit;
 
 	while (resq) {
@@ -3876,7 +3876,21 @@ iseq_compile_each(rb_iseq_t *iseq, LINK_ANCHOR *ret, NODE * node, int poped)
 	    }
 	    ADD_INSNL(ret, line, jump, label_miss);
 	    ADD_LABEL(ret, label_hit);
-	    COMPILE(ret, "resbody body", resq->nd_body);
+
+	    body = resq->nd_body;
+	    if (nd_type(body) == NODE_RESCOND) {
+		LABEL *label_pass = NEW_LABEL(line);
+		if (body->nd_state) {
+		    compile_branch_condition(iseq, ret, body->nd_cond, label_pass, label_miss);
+		}
+		else {
+		    compile_branch_condition(iseq, ret, body->nd_cond, label_miss, label_pass);
+		}
+		ADD_LABEL(ret, label_pass);
+	        body = body->nd_body;
+	    }
+
+	    COMPILE(ret, "resbody body", body);
 	    if (iseq->compile_data->option->tailcall_optimization) {
 		ADD_INSN(ret, line, nop);
 	    }

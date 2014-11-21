@@ -529,6 +529,18 @@ end.join
     end
   end
 
+  def test_rescue_condition
+    result = nil
+    begin
+      raise "foo"
+    rescue RuntimeError => e if e.message == "bar"
+      result = "Bar!"
+    rescue RuntimeError => e if e.message == "foo"
+      result = "Foo!"
+    end
+    assert_equal("Foo!", result)
+  end
+
   def test_to_s_taintness_propagation
     for exc in [Exception, NameError]
       m = "abcdefg"
