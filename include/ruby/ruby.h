@@ -1836,26 +1836,6 @@ int ruby_run_node(void *n);
 void ruby_show_version(void);
 void ruby_show_copyright(void);
 
-#ifndef RUBY_SHOW_COPYRIGHT_TO_DIE
-# ifdef RUBY_EXPORT
-#   define RUBY_SHOW_COPYRIGHT_TO_DIE 0
-# else
-#   define RUBY_SHOW_COPYRIGHT_TO_DIE 1
-# endif
-#endif
-#if RUBY_SHOW_COPYRIGHT_TO_DIE
-/* for source code backward compatibility */
-DEPRECATED(static inline int ruby_show_copyright_to_die(int));
-static inline int
-ruby_show_copyright_to_die(int exitcode)
-{
-    ruby_show_copyright();
-    return exitcode;
-}
-#define ruby_show_copyright() /* defer EXIT_SUCCESS */ \
-    (exit(ruby_show_copyright_to_die(EXIT_SUCCESS)))
-#endif
-
 /*! A convenience macro to call ruby_init_stack(). Must be placed just after
  *  variable declarations */
 #define RUBY_INIT_STACK \
@@ -1894,6 +1874,10 @@ void ruby_incpush(const char*);
 void ruby_sig_finalize(void);
 
 /*! @} */
+
+#if !defined RUBY_EXPORT && !defined RUBY_NO_OLD_COMPATIBILITY
+# include "ruby/backward.h"
+#endif
 
 RUBY_SYMBOL_EXPORT_END
 
