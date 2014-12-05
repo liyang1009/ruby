@@ -325,6 +325,10 @@ with all sufficient information, see the ChangeLog file.
 * rb_extract_keywords() and rb_get_kwargs() exported.  See README.EXT
   for details.
 
+* ruby_show_version() will no longer exits the process, if
+  RUBY_SHOW_COPYRIGHT_TO_DIE is set to 0.  This will be the default in
+  the fuure.
+
 === Build system updates
 
 * jemalloc is optionally supported via `./configure --with-jemalloc`
