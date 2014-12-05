@@ -183,8 +183,6 @@ VALUE rb_complex_polar(VALUE, VALUE);
 VALUE rb_Complex(VALUE, VALUE);
 #define rb_Complex1(x) rb_Complex((x), INT2FIX(0))
 #define rb_Complex2(x,y) rb_Complex((x), (y))
-DEPRECATED(VALUE rb_complex_set_real(VALUE, VALUE));
-DEPRECATED(VALUE rb_complex_set_imag(VALUE, VALUE));
 /* class.c */
 VALUE rb_class_boot(VALUE);
 VALUE rb_class_new(VALUE);
@@ -373,24 +371,11 @@ VALUE rb_f_exit(int, const VALUE*);
 VALUE rb_f_abort(int, const VALUE*);
 void rb_remove_method(VALUE, const char*);
 void rb_remove_method_id(VALUE, ID);
-DEPRECATED(static inline void rb_disable_super(void));
-DEPRECATED(static inline void rb_enable_super(void));
-static inline void rb_disable_super(void)
-{
-    /* obsolete - no use */
-}
-static inline void rb_enable_super(void)
-{
-    rb_warning("rb_enable_super() is obsolete");
-}
-#define rb_disable_super(klass, name) rb_disable_super()
-#define rb_enable_super(klass, name) rb_enable_super()
 #define HAVE_RB_DEFINE_ALLOC_FUNC 1
 typedef VALUE (*rb_alloc_func_t)(VALUE);
 void rb_define_alloc_func(VALUE, rb_alloc_func_t);
 void rb_undef_alloc_func(VALUE);
 rb_alloc_func_t rb_get_alloc_func(VALUE);
-DEPRECATED(void rb_clear_cache(void));
 void rb_clear_constant_cache(void);
 void rb_clear_method_cache_by_class(VALUE);
 void rb_alias(VALUE, ID, ID);
@@ -524,8 +509,6 @@ int rb_path_check(const char*);
 int rb_env_path_tainted(void);
 VALUE rb_env_clear(void);
 VALUE rb_hash_size(VALUE);
-DEPRECATED(int rb_hash_iter_lev(VALUE));
-DEPRECATED(VALUE rb_hash_ifnone(VALUE));
 /* io.c */
 #define rb_defout rb_stdout
 RUBY_EXTERN VALUE rb_fs;
@@ -777,8 +760,6 @@ VALUE rb_str_replace(VALUE, VALUE);
 VALUE rb_str_inspect(VALUE);
 VALUE rb_str_dump(VALUE);
 VALUE rb_str_split(VALUE, const char*);
-DEPRECATED(void rb_str_associate(VALUE, VALUE));
-DEPRECATED(VALUE rb_str_associated(VALUE));
 void rb_str_setter(VALUE, ID, VALUE*);
 VALUE rb_str_intern(VALUE);
 VALUE rb_sym_to_s(VALUE);
@@ -973,9 +954,10 @@ int rb_frame_method_id_and_class(ID *idp, VALUE *klassp);
 VALUE rb_make_backtrace(void);
 VALUE rb_make_exception(int, const VALUE*);
 
-/* deprecated */
-DEPRECATED(void rb_frame_pop(void));
 
+#if !defined RUBY_EXPORT && !defined RUBY_NO_DEPRECATED
+# include "ruby/backward/deprecated.h"
+#endif
 
 RUBY_SYMBOL_EXPORT_END
 
