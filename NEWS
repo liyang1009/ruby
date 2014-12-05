@@ -327,7 +327,7 @@ with all sufficient information, see the ChangeLog file.
 
 * ruby_show_version() will no longer exits the process, if
   RUBY_SHOW_COPYRIGHT_TO_DIE is set to 0.  This will be the default in
-  the fuure.
+  the future.
 
 === Build system updates
 
