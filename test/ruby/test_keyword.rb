@@ -564,6 +564,6 @@ class TestKeywordArguments < Test::Unit::TestCase
 
   def test_nonsymbol_key
     result = m(["a" => 10]) { |a = nil, **b| [a, b] }
-    assert_equal([{"a" => 10}, {}], result)
+    assert_equal([nil, {"a" => 10}], result)
   end
 end

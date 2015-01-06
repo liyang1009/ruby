@@ -173,11 +173,16 @@ args_rest_array(struct args_info *args)
 }
 
 static int
-keyword_hash_p(VALUE *kw_hash_ptr, VALUE *rest_hash_ptr, rb_thread_t *th, const int msl)
+keyword_hash_p(VALUE *kw_hash_ptr, VALUE *rest_hash_ptr, rb_thread_t *th, const int msl, const int has_kw)
 {
     *rest_hash_ptr = rb_check_hash_type(*kw_hash_ptr);
     th->mark_stack_len = msl;
 
+    if (!has_kw) {
+	*kw_hash_ptr = *rest_hash_ptr;
+	*rest_hash_ptr = 0;
+	return !NIL_P(*kw_hash_ptr);
+    }
     if (!NIL_P(*rest_hash_ptr)) {
 	VALUE hash = rb_extract_keywords(rest_hash_ptr);
 	if (!hash) hash = Qnil;
@@ -191,7 +196,7 @@ keyword_hash_p(VALUE *kw_hash_ptr, VALUE *rest_hash_ptr, rb_thread_t *th, const 
 }
 
 static VALUE
-args_pop_keyword_hash(struct args_info *args, VALUE *kw_hash_ptr, rb_thread_t *th, const int msl)
+args_pop_keyword_hash(struct args_info *args, VALUE *kw_hash_ptr, VALUE *rest_hash_ptr, rb_thread_t *th, const int msl, const int has_kw)
 {
     VALUE rest_hash;
 
@@ -200,8 +205,8 @@ args_pop_keyword_hash(struct args_info *args, VALUE *kw_hash_ptr, rb_thread_t *t
 	assert(args->argc > 0);
 	*kw_hash_ptr = args->argv[args->argc-1];
 
-	if (keyword_hash_p(kw_hash_ptr, &rest_hash, th, msl)) {
-	    if (rest_hash) {
+	if (keyword_hash_p(kw_hash_ptr, &rest_hash, th, msl, has_kw)) {
+	    if (rest_hash && (rest_hash_ptr ? (*rest_hash_ptr = rest_hash, 0) : 1)) {
 		args->argv[args->argc-1] = rest_hash;
 	    }
 	    else {
@@ -216,8 +221,8 @@ args_pop_keyword_hash(struct args_info *args, VALUE *kw_hash_ptr, rb_thread_t *t
 	if (len > 0) {
 	    *kw_hash_ptr = RARRAY_AREF(args->rest, len - 1);
 
-	    if (keyword_hash_p(kw_hash_ptr, &rest_hash, th, msl)) {
-		if (rest_hash) {
+	    if (keyword_hash_p(kw_hash_ptr, &rest_hash, th, msl, has_kw)) {
+		if (rest_hash && (rest_hash_ptr ? (*rest_hash_ptr = rest_hash, 0) : 1)) {
 		    RARRAY_ASET(args->rest, len - 1, rest_hash);
 		}
 		else {
@@ -347,25 +352,6 @@ args_setup_rest_parameter(struct args_info *args, VALUE *locals)
     *locals = args_rest_array(args);
 }
 
-static VALUE
-make_unused_kw_hash(const ID *passed_keywords, int passed_keyword_len, const VALUE *kw_argv, const int key_only)
-{
-    int i;
-    VALUE obj = key_only ? rb_ary_tmp_new(1) : rb_hash_new();
-
-    for (i=0; i<passed_keyword_len; i++) {
-	if (kw_argv[i] != Qundef) {
-	    if (key_only) {
-		rb_ary_push(obj, ID2SYM(passed_keywords[i]));
-	    }
-	    else {
-		rb_hash_aset(obj, ID2SYM(passed_keywords[i]), kw_argv[i]);
-	    }
-	}
-    }
-    return obj;
-}
-
 static inline int
 args_setup_kw_parameters_lookup(const ID key, VALUE *ptr, const ID * const passed_keywords, VALUE *passed_values, const int passed_keyword_len)
 {
@@ -384,7 +370,7 @@ args_setup_kw_parameters_lookup(const ID key, VALUE *ptr, const ID * const passe
 
 static void
 args_setup_kw_parameters(VALUE* const passed_values, const int passed_keyword_len, const ID * const passed_keywords,
-			 const rb_iseq_t * const iseq, VALUE * const locals)
+			 const rb_iseq_t * const iseq, VALUE * const locals, VALUE rest_hash)
 {
     const ID *acceptable_keywords = iseq->param.keyword->table;
     const int req_key_num = iseq->param.keyword->required_num;
@@ -442,11 +428,26 @@ args_setup_kw_parameters(VALUE* const passed_values, const int passed_keyword_le
 
     if (iseq->param.flags.has_kwrest) {
 	const int rest_hash_index = key_num + 1;
-	locals[rest_hash_index] = make_unused_kw_hash(passed_keywords, passed_keyword_len, passed_values, FALSE);
+	int i;
+	if (NIL_P(rest_hash)) rest_hash = rb_hash_new();
+	for (i=0; i<passed_keyword_len; i++) {
+	    VALUE val = passed_values[i];
+	    if (val != Qundef) {
+		rb_hash_aset(rest_hash, ID2SYM(passed_keywords[i]), val);
+	    }
+	}
+	locals[rest_hash_index] = rest_hash;
     }
     else {
 	if (found != passed_keyword_len) {
-	    VALUE keys = make_unused_kw_hash(passed_keywords, passed_keyword_len, passed_values, TRUE);
+	    int i;
+	    VALUE keys = rb_ary_tmp_new(1);
+
+	    for (i=0; i<passed_keyword_len; i++) {
+		if (passed_values[i] != Qundef) {
+		    rb_ary_push(keys, ID2SYM(passed_keywords[i]));
+		}
+	    }
 	    argument_kw_error(GET_THREAD(), iseq, "unknown", keys);
 	}
     }
@@ -510,6 +511,7 @@ setup_parameters_complex(rb_thread_t * const th, const rb_iseq_t * const iseq, r
     int given_argc;
     struct args_info args_body, *args;
     VALUE keyword_hash = Qnil;
+    VALUE rest_hash = Qnil;
     const int msl = ci->argc + iseq->param.size;
 
     th->mark_stack_len = msl;
@@ -589,7 +591,8 @@ setup_parameters_complex(rb_thread_t * const th, const rb_iseq_t * const iseq, r
     if (given_argc > min_argc &&
 	(iseq->param.flags.has_kw || iseq->param.flags.has_kwrest) &&
 	args->kw_argv == NULL) {
-	if (args_pop_keyword_hash(args, &keyword_hash, th, msl)) {
+	VALUE *rest_hash_ptr = iseq->param.flags.has_kwrest ? &rest_hash : NULL;
+	if (args_pop_keyword_hash(args, &keyword_hash, rest_hash_ptr, th, msl, iseq->param.flags.has_kw)) {
 	    given_argc--;
 	}
     }
@@ -626,7 +629,9 @@ setup_parameters_complex(rb_thread_t * const th, const rb_iseq_t * const iseq, r
 	VALUE * const klocals = locals + iseq->param.keyword->bits_start - iseq->param.keyword->num;
 
 	if (args->kw_argv != NULL) {
-	    args_setup_kw_parameters(args->kw_argv, args->ci->kw_arg->keyword_len, args->ci->kw_arg->keywords, iseq, klocals);
+	    args_setup_kw_parameters(args->kw_argv,
+				     args->ci->kw_arg->keyword_len, args->ci->kw_arg->keywords,
+				     iseq, klocals, rest_hash);
 	}
 	else if (!NIL_P(keyword_hash)) {
 	    int kw_len = rb_long2int(RHASH_SIZE(keyword_hash));
@@ -637,11 +642,11 @@ setup_parameters_complex(rb_thread_t * const th, const rb_iseq_t * const iseq, r
 	    arg.argc = 0;
 	    rb_hash_foreach(keyword_hash, fill_keys_values, (VALUE)&arg);
 	    assert(arg.argc == kw_len);
-	    args_setup_kw_parameters(arg.vals, kw_len, arg.keys, iseq, klocals);
+	    args_setup_kw_parameters(arg.vals, kw_len, arg.keys, iseq, klocals, rest_hash);
 	}
 	else {
 	    assert(args_argc(args) == 0);
-	    args_setup_kw_parameters(NULL, 0, NULL, iseq, klocals);
+	    args_setup_kw_parameters(NULL, 0, NULL, iseq, klocals, rest_hash);
 	}
     }
     else if (iseq->param.flags.has_kwrest) {
